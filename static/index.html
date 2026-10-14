@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Assistant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h7' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+/* ---------- Colors (light theme) ---------- */
+:root {
+  --bg: #f7f7f5;            /* page background */
+  --panel: #ffffff;         /* cards, sidebar */
+  --panel-2: #f1f1ee;       /* subtle fills */
+  --border: #e4e4df;        /* lines */
+  --text: #1c1c1a;          /* main text */
+  --muted: #6b6b66;         /* secondary text */
+  --accent: #0f766e;        /* teal brand color */
+  --accent-soft: #e6f3f1;   /* light teal fill */
+  --accent-text: #ffffff;   /* text on accent */
+  --user-bubble: #1c1c1a;   /* your message bubble */
+  --user-text: #ffffff;     /* text in your bubble */
+  --danger: #b42318;        /* errors */
+  --ok: #15803d;            /* healthy status */
+  --warn: #b45309;          /* warning status */
+  --code-bg: #f3f3f0;       /* code blocks */
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.05);
+  --radius: 14px;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Cascadia Code", Consolas, ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+/* ---------- Colors (dark theme, follows Windows setting) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413; --panel: #1c1c1b; --panel-2: #252523; --border: #2f2f2c;
+    --text: #ececea; --muted: #9a9a94; --accent: #2dd4bf; --accent-soft: #15302d;
+    --accent-text: #0b1a18; --user-bubble: #ececea; --user-text: #141413;
+    --danger: #f97066; --ok: #4ade80; --warn: #fbbf24; --code-bg: #232321;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+
+/* ---------- Page layout ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; height: 100dvh; }
+
+/* ---------- Sidebar ---------- */
+.sidebar { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.brand { display: flex; align-items: center; gap: 12px; padding: 20px 20px 16px; }
+.logo { width: 36px; height: 36px; border-radius: 10px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.logo svg { width: 20px; height: 20px; }
+.brand-name { font-weight: 650; letter-spacing: -.01em; }
+.brand-sub { font-size: 12px; color: var(--muted); }
+.new-chat { margin: 0 16px 16px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); display: flex; align-items: center; gap: 8px; font-weight: 550; transition: background .15s; }
+.new-chat:hover { background: var(--panel-2); }
+.new-chat svg { width: 16px; height: 16px; }
+
+.panel { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 4px 4px 10px; }
+.count { background: var(--panel-2); border-radius: 999px; padding: 1px 8px; font-size: 11px; letter-spacing: 0; }
+
+.dropzone { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 12px; border: 1.5px dashed var(--border); border-radius: 12px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone svg { width: 22px; height: 22px; color: var(--accent); margin-bottom: 4px; }
+.dropzone strong { font-size: 14px; font-weight: 600; }
+.dropzone span { font-size: 12px; color: var(--muted); }
+.dropzone.busy { pointer-events: none; opacity: .7; }
+
+.doc-list { list-style: none; margin: 12px 0 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.doc { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; }
+.doc:hover { background: var(--panel-2); }
+.doc-icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 10px; font-weight: 700; flex: none; letter-spacing: .02em; }
+.doc-icon.pdf { background: #fde8e7; color: #b42318; }
+.doc-icon.xlsx, .doc-icon.csv { background: #e3f4e8; color: #15803d; }
+.doc-icon.md, .doc-icon.txt { background: #e8eefc; color: #3451b2; }
+@media (prefers-color-scheme: dark) {
+  .doc-icon.pdf { background: #3a1d1b; color: #f97066; }
+  .doc-icon.xlsx, .doc-icon.csv { background: #16301f; color: #4ade80; }
+  .doc-icon.md, .doc-icon.txt { background: #1d2540; color: #93a8f4; }
+}
+.doc-info { min-width: 0; flex: 1; }
+.doc-name { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-size { font-size: 12px; color: var(--muted); }
+.doc-del { opacity: 0; border: 0; background: none; padding: 6px; border-radius: 8px; color: var(--muted); }
+.doc:hover .doc-del, .doc-del:focus-visible { opacity: 1; }
+.doc-del:hover { color: var(--danger); background: var(--panel); }
+.doc-del svg { width: 16px; height: 16px; display: block; }
+.doc-empty { font-size: 13px; color: var(--muted); padding: 8px 4px; }
+
+.status { border-top: 1px solid var(--border); padding: 14px 20px 18px; font-size: 12.5px; }
+.status-row { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+.dot.bad { background: var(--danger); }
+.meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); padding: 2px 0; }
+.meta b { color: var(--text); font-weight: 550; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta b.warn { color: var(--warn); }
+.local-badge { margin-top: 12px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); background: var(--accent-soft); padding: 6px 10px; border-radius: 8px; font-weight: 550; }
+.local-badge svg { width: 14px; height: 14px; flex: none; }
+
+/* ---------- Chat area ---------- */
+.chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.topbar { display: none; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.icon-btn { border: 0; background: none; padding: 6px; border-radius: 8px; display: grid; place-items: center; }
+.icon-btn:hover { background: var(--panel-2); }
+.icon-btn svg { width: 20px; height: 20px; }
+.messages { flex: 1; overflow-y: auto; padding: 32px 24px 16px; scroll-behavior: smooth; }
+.thread { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+/* Welcome screen */
+.empty { max-width: 640px; margin: 8vh auto 0; text-align: center; }
+.empty .logo { width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 18px; }
+.empty .logo svg { width: 28px; height: 28px; }
+.empty h1 { font-size: 28px; font-weight: 650; letter-spacing: -.02em; margin: 0 0 6px; }
+.empty p { color: var(--muted); margin: 0 0 28px; }
+.suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+.suggestion { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 12px 14px; font-size: 14px; transition: border-color .15s, transform .15s; box-shadow: var(--shadow); }
+.suggestion:hover { border-color: var(--accent); transform: translateY(-1px); }
+.suggestion small { display: block; color: var(--muted); font-size: 12.5px; }
+
+/* Messages */
+.msg.user { display: flex; justify-content: flex-end; }
+.msg.user .bubble { background: var(--user-bubble); color: var(--user-text); padding: 10px 16px; border-radius: 18px 18px 4px 18px; max-width: 80%; white-space: pre-wrap; word-wrap: break-word; }
+.msg.ai { display: flex; gap: 14px; }
+.msg.ai .logo { width: 30px; height: 30px; border-radius: 9px; margin-top: 2px; }
+.msg.ai .logo svg { width: 16px; height: 16px; }
+.msg.ai .body { flex: 1; min-width: 0; }
+
+.thinking { margin-bottom: 10px; font-size: 13.5px; }
+.thinking summary { cursor: pointer; color: var(--muted); list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--panel-2); user-select: none; }
+.thinking summary::-webkit-details-marker { display: none; }
+.thinking summary svg { width: 14px; height: 14px; transition: transform .15s; }
+.thinking[open] summary svg { transform: rotate(90deg); }
+.thinking-text { margin-top: 8px; padding: 4px 0 4px 14px; border-left: 2px solid var(--border); color: var(--muted); white-space: pre-wrap; max-height: 260px; overflow-y: auto; }
+.thinking.live summary span::after { content: "…"; }
+
+.typing { display: inline-flex; gap: 4px; padding: 10px 0; }
+.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite both; }
+.typing i:nth-child(2) { animation-delay: .2s; }
+.typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+.tools { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.tool { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; background: var(--accent-soft); color: var(--text); border-radius: 10px; padding: 7px 12px; }
+.tool svg { width: 15px; height: 15px; color: var(--accent); flex: none; margin-top: 2px; }
+.tool b { font-weight: 600; }
+.tool span { color: var(--muted); display: block; }
+.sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.source { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px 2px 8px; background: var(--panel); }
+.source svg { width: 12px; height: 12px; }
+.error { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); padding: 10px 14px; border-radius: 10px; font-size: 14px; }
+
+/* Answer formatting (Markdown) */
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol, .md pre, .md table, .md blockquote { margin: 0 0 12px; }
+.md h3, .md h4, .md h5, .md h6 { margin: 18px 0 8px; line-height: 1.3; letter-spacing: -.01em; }
+.md h3 { font-size: 18px; } .md h4 { font-size: 16px; } .md h5, .md h6 { font-size: 15px; }
+.md ul, .md ol { padding-left: 22px; }
+.md li { margin: 3px 0; }
+.md code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); padding: 1px 5px; border-radius: 5px; }
+.md pre { background: var(--code-bg); border: 1px solid var(--border); padding: 12px 14px; border-radius: 10px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; font-size: 13px; }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; font-size: 14px; }
+.md th, .md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.md th { background: var(--panel-2); font-weight: 600; }
+.md blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--muted); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+.md a { color: var(--accent); }
+
+/* ---------- Message box ---------- */
+.composer-wrap { padding: 8px 24px 20px; }
+.composer { max-width: 780px; margin: 0 auto; background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); display: flex; align-items: flex-end; gap: 8px; padding: 8px 8px 8px 16px; transition: border-color .15s; }
+.composer:focus-within { border-color: var(--accent); }
+.composer textarea { flex: 1; border: 0; outline: 0; resize: none; background: none; color: var(--text); font: inherit; padding: 8px 0; max-height: 200px; line-height: 1.5; }
+.composer textarea::placeholder { color: var(--muted); }
+.send { width: 38px; height: 38px; border-radius: 12px; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; flex: none; transition: opacity .15s; }
+.send:disabled { opacity: .35; cursor: default; }
+.send svg { width: 18px; height: 18px; }
+.hint { max-width: 780px; margin: 8px auto 0; font-size: 12px; color: var(--muted); text-align: center; }
+
+/* ---------- Pop-up notice ---------- */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: calc(100% - 32px); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Phones and small windows ---------- */
+.scrim { display: none; }
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: min(300px, 85vw); z-index: 40; transform: translateX(-100%); transition: transform .2s; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow); }
+  .scrim.open { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; }
+  .topbar { display: flex; }
+  .messages { padding: 20px 16px 12px; }
+  .composer-wrap { padding: 8px 16px 16px; }
+  .suggestions { grid-template-columns: 1fr; }
+  .empty { margin-top: 4vh; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar: documents and status -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M5 12h10M5 17h6"/></svg></div>
+      <div>
+        <div class="brand-name">Local Assistant</div>
+        <div class="brand-sub">Private AI · your documents</div>
+      </div>
+    </div>
+    <button class="new-chat" id="newChat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      New chat
+    </button>
+
+    <section class="panel">
+      <div class="panel-head"><span>Knowledge base</span><span class="count" id="docCount">0</span></div>
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" multiple accept=".pdf,.xlsx,.csv,.txt,.md" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <strong id="dropTitle">Add documents</strong>
+        <span id="dropSub">Drop files or click · PDF, Excel, CSV, TXT, MD</span>
+      </label>
+      <ul class="doc-list" id="docList"></ul>
+    </section>
+
+    <footer class="status">
+      <div class="status-row"><span class="dot" id="statusDot"></span><span id="statusText">Connecting…</span></div>
+      <div class="meta"><span>Chat model</span><b id="chatModel">—</b></div>
+      <div class="meta"><span>Embeddings</span><b id="embedModel">—</b></div>
+      <div class="meta"><span>Running on</span><b id="device">—</b></div>
+      <div class="meta"><span>Spreadsheet tool</span><b id="toolStatus">—</b></div>
+      <div class="meta"><span>Indexed chunks</span><b id="chunkCount">—</b></div>
+      <div class="local-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        Runs entirely on this computer
+      </div>
+    </footer>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- Main chat area -->
+  <main class="chat">
+    <header class="topbar">
+      <button class="icon-btn" id="menuBtn" aria-label="Open sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <strong>Local Assistant</strong>
+    </header>
+
+    <div class="messages" id="messages">
+      <div class="thread" id="thread">
+        <div class="empty" id="empty">
+          <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M5 12h10M5 17h6"/></svg></div>
+          <h1>What would you like to know?</h1>
+          <p>Ask anything. Answers use your documents when they're relevant.</p>
+          <div class="suggestions">
+            <button class="suggestion" data-q="Summarize the documents in my knowledge base.">Summarize my documents<small>Get a quick overview</small></button>
+            <button class="suggestion" data-q="What topics are covered in my documents?">What topics are covered?<small>See what's inside</small></button>
+            <button class="suggestion" data-q="Find anything in my documents that looks out of date or inconsistent.">Spot inconsistencies<small>Check for outdated info</small></button>
+            <button class="suggestion" data-q="Explain how this assistant works and where my data is stored.">How does this work?<small>Privacy and storage</small></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Message Local Assistant…" autofocus></textarea>
+        <button class="send" id="sendBtn" type="submit" aria-label="Send" disabled></button>
+      </form>
+      <div class="hint">Enter to send · Shift + Enter for a new line</div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- Shortcuts to page elements ----------
+const $ = (id) => document.getElementById(id);
+const thread = $("thread"), messagesEl = $("messages"), input = $("input"), sendBtn = $("sendBtn");
+
+// ---------- Icons ----------
+const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>';
+const ICON_FILE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+const ICON_TABLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>';
+const ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
+const LOGO = '<div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M5 12h10M5 17h6"/></svg></div>';
+
+// ---------- Conversation state ----------
+let history = [];        // Messages so far: {role, content}
+let controller = null;   // Lets the Stop button cancel an answer
+sendBtn.innerHTML = ICON_SEND;
+
+// ---------- Small helpers ----------
+function esc(s) {        // Makes text safe to put inside HTML
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function toast(text, ms = 3000) {   // Shows a short pop-up message
+  const t = $("toast"); t.textContent = text; t.classList.add("show");
+  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove("show"), ms);
+}
+function nearBottom() {  // Is the user looking at the latest message?
+  return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 120;
+}
+function scrollDown(force) { if (force || nearBottom()) messagesEl.scrollTop = messagesEl.scrollHeight; }
+function fmtSize(b) { return b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(0) + " KB" : (b / 1048576).toFixed(1) + " MB"; }
+
+// ---------- Markdown → HTML (small built-in renderer, nothing downloaded) ----------
+function inline(s) {     // Bold, italic, inline code, links. Input is already escaped.
+  return s.split(/(`[^`]+`)/).map((part, i) => {
+    if (i % 2) return "<code>" + part.slice(1, -1) + "</code>";
+    return part
+      .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }).join("");
+}
+function splitRow(line) { return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim()); }
+function listBlock(lines, i, isList, isBlockStart) {   // A list; more-indented items become a sub-list
+  const indent = (l) => l.match(/^\s*/)[0].length;
+  const base = indent(lines[i]), tag = /^\s*\d/.test(lines[i]) ? "ol" : "ul";
+  let out = "";
+  while (i < lines.length) {
+    const l = lines[i], ind = indent(l);
+    if (!l.trim()) {                                          // Blank line: keep going only if the list continues
+      if (isList(lines[i + 1] || "") && indent(lines[i + 1]) >= base) { i++; continue; }
+      break;
+    }
+    if (isList(l) && ind === base) { out += (out ? "</li>" : "") + "<li>" + inline(esc(l.replace(/^\s*([-*+]|\d+[.)])\s+/, ""))); i++; }
+    else if (isList(l) && ind > base && out) { const r = listBlock(lines, i, isList, isBlockStart); out += r.html; i = r.i; }
+    else if (ind > base && out && !isBlockStart(l.trimStart())) { out += " " + inline(esc(l.trim())); i++; }   // Wrapped text of the item
+    else break;
+  }
+  return { html: `<${tag}>${out}</li></${tag}>`, i };
+}
+function md(src) {       // Turns the model's Markdown answer into HTML
+  const lines = src.replace(/\r/g, "").split("\n");
+  let html = "", i = 0;
+  const isList = (l) => /^\s*([-*+]|\d+[.)])\s+/.test(l);
+  const isBlockStart = (l) => /^```|^#{1,6}\s|^>\s?|^(-{3,}|\*{3,})\s*$/.test(l) || isList(l);
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {                                  // Code block
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++; html += "<pre><code>" + esc(buf.join("\n")) + "</code></pre>"; continue;
+    }
+    if (!line.trim()) { i++; continue; }                      // Blank line
+    let m = line.match(/^(#{1,6})\s+(.*)/);                   // Heading
+    if (m) { const lvl = Math.min(m[1].length + 2, 6); html += `<h${lvl}>${inline(esc(m[2]))}</h${lvl}>`; i++; continue; }
+    if (/^(-{3,}|\*{3,})\s*$/.test(line)) { html += "<hr>"; i++; continue; }   // Divider
+    if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || "")) {   // Table
+      const head = splitRow(line); i += 2;
+      let t = "<table><thead><tr>" + head.map((c) => "<th>" + inline(esc(c)) + "</th>").join("") + "</tr></thead><tbody>";
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) t += "<tr>" + splitRow(lines[i++]).map((c) => "<td>" + inline(esc(c)) + "</td>").join("") + "</tr>";
+      html += t + "</tbody></table>"; continue;
+    }
+    if (isList(line)) { const r = listBlock(lines, i, isList, isBlockStart); html += r.html; i = r.i; continue; }   // Bulleted or numbered list
+    if (/^>\s?/.test(line)) {                                 // Quote
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ""));
+      html += "<blockquote>" + inline(esc(buf.join(" "))) + "</blockquote>"; continue;
+    }
+    const buf = [];                                           // Normal paragraph
+    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i]) && !/^\s*\|.*\|\s*$/.test(lines[i])) buf.push(lines[i++]);
+    if (!buf.length) buf.push(lines[i++]);
+    html += "<p>" + buf.map((l) => inline(esc(l))).join("<br>") + "</p>";
+  }
+  return html;
+}
+
+// ---------- Adding messages to the screen ----------
+function addUser(text) {
+  $("empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.innerHTML = '<div class="bubble"></div>';
+  el.querySelector(".bubble").textContent = text;
+  thread.appendChild(el);
+}
+function addAssistant() {
+  const el = document.createElement("div");
+  el.className = "msg ai";
+  el.innerHTML = LOGO + `<div class="body">
+      <details class="thinking live" hidden><summary>${ICON_CHEVRON}<span>Thinking</span></summary><div class="thinking-text"></div></details>
+      <div class="tools" hidden></div>
+      <div class="content md"><div class="typing"><i></i><i></i><i></i></div></div>
+      <div class="sources" hidden></div>
+    </div>`;
+  thread.appendChild(el);
+  return {
+    thinking: el.querySelector(".thinking"),
+    thinkingText: el.querySelector(".thinking-text"),
+    tools: el.querySelector(".tools"),
+    content: el.querySelector(".content"),
+    sources: el.querySelector(".sources"),
+  };
+}
+
+// ---------- Asking a question ----------
+async function send(text) {
+  text = text.trim();
+  if (!text || controller) return;
+  input.value = ""; autosize(); updateButton();
+  addUser(text);
+  const ui = addAssistant();
+  scrollDown(true);
+
+  controller = new AbortController();
+  updateButton();
+  let answer = "", thinking = "", sources = [], frame = 0;
+  const render = () => {          // Redraw at most once per screen refresh
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (answer) ui.content.innerHTML = md(answer);
+      if (thinking) { ui.thinking.hidden = false; ui.thinkingText.textContent = thinking; ui.thinkingText.scrollTop = ui.thinkingText.scrollHeight; }
+      scrollDown();
+    });
+  };
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, history }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error("Server error " + res.status);
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {                // Read the answer as it streams in
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === "sources") sources = ev.sources;
+        else if (ev.type === "thinking") { thinking += ev.text; render(); }
+        else if (ev.type === "token") { answer += ev.text; render(); }
+        else if (ev.type === "tool") {     // The AI checked a spreadsheet: show what it looked at
+          ui.tools.hidden = false;
+          ui.tools.insertAdjacentHTML("beforeend", `<div class="tool">${ICON_TABLE}<div><b>Checked ${esc(ev.label)}</b><span>${esc(ev.summary)}</span></div></div>`);
+          scrollDown();
+        }
+        else if (ev.type === "error") throw new Error(ev.message);
+      }
+    }
+  } catch (err) {
+    if (err.name === "AbortError") answer += answer ? "\n\n*Stopped.*" : "*Stopped.*";
+    else { ui.content.innerHTML = '<div class="error"></div>'; ui.content.firstChild.textContent = "Something went wrong: " + err.message; }
+  }
+
+  cancelAnimationFrame(frame); frame = 0;
+  if (answer) ui.content.innerHTML = md(answer);
+  else if (ui.content.querySelector(".typing")) ui.content.innerHTML = '<p style="color:var(--muted)">No answer.</p>';
+  if (thinking) {                 // Final redraw of the thinking (in case the tab was in the background)
+    ui.thinking.hidden = false; ui.thinkingText.textContent = thinking;
+    ui.thinking.classList.remove("live"); ui.thinking.querySelector("span").textContent = "Thought process";
+  }
+  if (sources.length && answer) {
+    ui.sources.hidden = false;
+    ui.sources.innerHTML = sources.map((s) => `<span class="source" title="${esc(s)}">${ICON_FILE}${esc(s)}</span>`).join("");
+  }
+  if (answer) history.push({ role: "user", content: text }, { role: "assistant", content: answer });
+  controller = null;
+  updateButton();
+  scrollDown();
+  refreshStatus();                // The model is loaded now, so CPU/GPU can be shown
+}
+
+// ---------- Message box behavior ----------
+function autosize() {    // Grow the box with the text (up to 200px); an empty box goes back to one line
+  input.style.height = "auto";
+  if (input.value) input.style.height = Math.min(input.scrollHeight, 200) + "px";
+}
+function updateButton() {
+  if (controller) { sendBtn.innerHTML = ICON_STOP; sendBtn.disabled = false; sendBtn.setAttribute("aria-label", "Stop"); }
+  else { sendBtn.innerHTML = ICON_SEND; sendBtn.disabled = !input.value.trim(); sendBtn.setAttribute("aria-label", "Send"); }
+}
+input.addEventListener("input", () => { autosize(); updateButton(); });
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); }
+});
+$("composer").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (controller) controller.abort(); else send(input.value);
+});
+document.querySelectorAll(".suggestion").forEach((b) => b.addEventListener("click", () => send(b.dataset.q)));
+$("newChat").addEventListener("click", () => location.reload());
+
+// ---------- Mobile sidebar ----------
+const toggleSidebar = (open) => { $("sidebar").classList.toggle("open", open); $("scrim").classList.toggle("open", open); };
+$("menuBtn").addEventListener("click", () => toggleSidebar(true));
+$("scrim").addEventListener("click", () => toggleSidebar(false));
+
+// ---------- Documents ----------
+async function loadDocuments() {
+  const docs = await fetch("/api/documents").then((r) => r.json());
+  $("docCount").textContent = docs.length;
+  const list = $("docList");
+  if (!docs.length) { list.innerHTML = '<li class="doc-empty">No documents yet. Add some above.</li>'; return; }
+  list.innerHTML = docs.map((d) => {
+    const ext = d.name.split(".").pop().toLowerCase();
+    return `<li class="doc">
+      <div class="doc-icon ${ext}">${esc(ext.toUpperCase())}</div>
+      <div class="doc-info"><div class="doc-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="doc-size">${fmtSize(d.size)}</div></div>
+      <button class="doc-del" data-name="${esc(d.name)}" aria-label="Remove ${esc(d.name)}">${ICON_TRASH}</button>
+    </li>`;
+  }).join("");
+  list.querySelectorAll(".doc-del").forEach((b) => b.addEventListener("click", () => removeDocument(b.dataset.name)));
+}
+async function removeDocument(name) {
+  if (!confirm(`Remove "${name}"?\n\nThis deletes the file from the documents folder and from the database.`)) return;
+  const res = await fetch("/api/documents/" + encodeURIComponent(name), { method: "DELETE" });
+  toast(res.ok ? `Removed ${name}` : "Could not remove the file");
+  loadDocuments(); refreshStatus();
+}
+async function upload(files) {
+  if (!files.length) return;
+  const zone = $("dropzone"), title = $("dropTitle"), sub = $("dropSub");
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+  zone.classList.add("busy");
+  zone.querySelector("svg").outerHTML = '<div class="spinner"></div>';
+  title.textContent = `Indexing ${files.length} file${files.length > 1 ? "s" : ""}…`;
+  sub.textContent = "Large files can take a few minutes";
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    toast(`Added ${data.files} file${data.files > 1 ? "s" : ""} · ${data.chunks} chunks indexed`, 4000);
+  } catch (err) {
+    toast(err.message, 5000);
+  }
+  zone.classList.remove("busy");
+  zone.querySelector(".spinner").outerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
+  title.textContent = "Add documents";
+  sub.textContent = "Drop files or click · PDF, Excel, CSV, TXT, MD";
+  $("fileInput").value = "";
+  loadDocuments(); refreshStatus();
+}
+$("fileInput").addEventListener("change", (e) => upload([...e.target.files]));
+const zone = $("dropzone");
+zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("drag"); });
+zone.addEventListener("dragleave", () => zone.classList.remove("drag"));
+zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("drag"); upload([...e.dataTransfer.files]); });
+
+// ---------- Status panel ----------
+async function refreshStatus() {
+  try {
+    const s = await fetch("/api/status").then((r) => r.json());
+    $("statusDot").className = "dot " + (s.ollama ? "ok" : "bad");
+    $("statusText").textContent = s.ollama ? "Ollama connected" : "Ollama not running";
+    $("chatModel").textContent = s.chat_model;
+    $("embedModel").textContent = s.embedding_model;
+    $("chunkCount").textContent = s.chunks.toLocaleString();
+    const tool = $("toolStatus");
+    tool.textContent = s.tools ? "On" : "Off";
+    tool.className = s.tools ? "" : "warn";
+    tool.title = s.tools ? "The AI can filter and count every spreadsheet row." : "This model can't use tools, so counts and lists come only from the column summary and a few matching rows. Pick a model with tool support for exact spreadsheet answers.";
+    const dev = $("device");
+    dev.textContent = s.device || "Idle";
+    dev.className = s.device === "CPU" ? "warn" : "";
+    dev.title = s.device === "CPU" ? "The model is using the processor. Updating the NVIDIA driver lets it use the graphics card, which is much faster." : "";
+  } catch {
+    $("statusDot").className = "dot bad";
+    $("statusText").textContent = "Server not reachable";
+  }
+}
+
+loadDocuments();
+refreshStatus();
+setInterval(refreshStatus, 15000);
+</script>
+</body>
+</html>
