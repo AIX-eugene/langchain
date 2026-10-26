@@ -58,8 +58,6 @@ def build_report(result, image_bytes, file_name="", decision="", notes=""):  # R
     text(16, "B")  # Big bold
     pdf.cell(0, 8, "ASC Ad Pre-screen Report", new_x="LMARGIN", new_y="NEXT")  # Title
     details = [file_name or "Uploaded image", f"Checked {result.get('checked_at') or datetime.now().strftime('%B %d, %Y %I:%M %p')}"]  # File and date
-    if result.get("vision_model"):  # The models used, for the record
-        details.append(f"Models: {result['vision_model']} + {result.get('judge_model', '')}")  # e.g. "minicpm-v:8b + gpt-oss:20b"
     paragraph("  ·  ".join(details), size=8.5, color=MUTED, gap=4)  # Under the title
 
     # ---------- Verdict ----------

@@ -6,6 +6,7 @@ from pipeline import check_image  # The whole check
 
 
 def main():  # Checks one image from the command line: uv run check.py path\to\ad.jpg
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # The Windows console can't show some characters the AI writes (e.g. special dashes); don't crash on them
     if len(sys.argv) != 2:  # Wrong usage
         sys.exit("Usage: uv run check.py <image.jpg | image.png>")  # Explain
     path = Path(sys.argv[1])  # The image file

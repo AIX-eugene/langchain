@@ -7,7 +7,7 @@ from judge import judge_stream  # Step 2: judge the description against the ASC 
 from vision import describe_image  # Step 1: describe the image
 
 
-def check_image(image_bytes):  # Runs the whole check on one image; yields (kind, data) events as it goes
+def check_image(image_bytes, note=""):  # Runs the whole check on one image (note: optional text the user sent with it); yields (kind, data) events
     start = time.time()  # When the check started
 
     yield "stage", "describe"  # Step 1 starts
@@ -21,10 +21,10 @@ def check_image(image_bytes):  # Runs the whole check on one image; yields (kind
 
     yield "stage", "judge"  # Step 2 starts
     raw = ""  # The judge's final answer
-    for kind, data in judge_stream(description):  # The judge's thinking, searches and answer
+    for kind, data in judge_stream(description, note):  # The judge's thinking, searches and answer
         if kind == "answer":  # The final answer
             raw = data  # Keep it
-        else:  # Thinking or a guideline search
+        elif kind != "token":  # Thinking, a guideline search, or memory use (the raw JSON text isn't shown)
             yield kind, data  # Show it on the page
 
     yield "stage", "verify"  # Step 3 starts

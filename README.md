@@ -1,10 +1,17 @@
-# ASC Ad Pre-screen
+# ASC Assistant
 
-A private AI tool that checks **advertising images** (billboards and other out-of-home ads) against
-the **Ad Standards Council (ASC) Philippines** guidelines, before they go to official ASC screening.
+A private AI chat assistant for the **Ad Standards Council (ASC) Philippines** guidelines. It
+pre-screens **advertising images** (billboards and other out-of-home ads) before they go to official
+ASC screening.
 
-You upload an ad image. The tool tells you whether it looks **compliant** or **non-compliant**.
-For every problem it shows the ASC rule, the evidence from the ad and how to fix it.
+It works like a chat. Attaching an image is **optional**:
+
+- **Ask a question** (no image), e.g. *"What must a beer billboard include?"*. The assistant answers
+  from the ASC rules, looking up the exact wording in the ASC Guidebook and citing the rule.
+- **Attach an ad image** (with or without a message). It's checked against the ASC guidelines, and
+  the answer says whether it looks **compliant** or **non-compliant**, with the ASC rule, the evidence
+  from the ad and how to fix every problem.
+- **Ask follow-ups** about a check, e.g. *"How do I fix issue 2?"*. The assistant remembers the result.
 
 Everything runs **on your own computer**: no internet, account or API key is needed once it's set up,
 and images never leave the machine.
@@ -55,8 +62,13 @@ prompts, the same rule summaries and the same Qdrant guidelines (see [How it map
      "missing" warning that is actually there, or evidence that isn't in the ad.
    - It **adds** decency problems the AI missed, such as revealing clothing or intimate poses.
    - It attaches a **plain-language explanation** of every ASC rule.
-4. **Result:** you see the image next to the verdict and findings. You record your own decision
+4. **Result:** the verdict and findings appear in the chat. You record your own decision
    (Approve / Revise / Reject) and download a **PDF report**.
+
+**Messages without an image** go straight to the reasoning model (gpt-oss:20b) with the full ASC rule
+checklist. It searches the ASC Guidebook when it needs the exact wording, then answers. A safety check
+flags any measurement in the answer (e.g. "12 pt", "1 inch") that isn't in the ASC rules, so made-up
+requirements are clearly marked.
 
 ---
 
@@ -188,8 +200,8 @@ uv --version
 
 ### Step 6: Load the ASC Guidebook into Qdrant
 
-> **Skip this if the guidelines are already loaded** (for example by n8n). The web page's header
-> shows **"Guidelines: 438 passages"** when they are.
+> **Skip this if the guidelines are already loaded** (for example by n8n). If they aren't, the web
+> page shows a yellow **"Setup needed"** bar saying the collection is empty.
 
 You need the ASC Guidebook as a PDF with real text (not a scan). Then:
 
@@ -229,25 +241,38 @@ Then edit `.env` in Notepad and restart the app. All settings are explained in [
 2. Open PowerShell in the project folder and run `uv run server.py`.
 3. Open **http://127.0.0.1:8000**.
 
-The header shows what's ready:
+The page is a simple chat. If something isn't ready (Ollama or Qdrant not running, a model not downloaded), a yellow
+**"Setup needed"** bar at the top says exactly what to do. Otherwise there's nothing to look after.
 
-| Chip | Meaning |
-|---|---|
-| **Ollama ready** | The AI models can run |
-| **Guidelines: 438 passages** | Qdrant is reachable and the ASC Guidebook is loaded |
-| **Running on GPU** | The models use the graphics card (fast). Orange **CPU** means slow |
+### Asking a question (no image)
 
-If something is missing, a yellow **"Setup needed"** bar says exactly what to do.
+1. Type your question in the box at the bottom and press **Enter**, or click one of the suggestions
+   on the welcome screen. English and Filipino/Taglish both work.
+2. The answer appears as it's written (about 30 seconds to 2 minutes). Under it you can open:
+   - **Sources**: the ASC Guidebook searches it made and the passages it read
+   - **Thinking**: its reasoning
+3. A yellow **⚠ note** under an answer means it mentions a measurement (size, percentage, distance)
+   that is **not** in the ASC guidelines. Treat that part as a suggestion, not a requirement.
+
+Use **Shift + Enter** for a new line, the **■** button to stop an answer, and **New chat** (top right)
+to start over. The assistant remembers the conversation until you start a new chat or reload the page.
 
 ### Checking an ad
 
-1. **Drop the ad image** onto the left panel, or click it to choose a file (JPG or PNG).
-2. Click **Check this ad**.
-3. Watch the three steps: **Describe → Check rules → Verify**. A check takes **about 3 minutes**
-   on a 16 GB graphics card. Meanwhile you can open:
-   - **What the AI sees in the image**: the description, written live
-   - **Guideline searches**: what the AI looked up in the ASC Guidebook, and what it found
-   - **Thought process**: the judge's reasoning
+1. **Attach the image** (JPG or PNG) in any of these ways:
+   - click the **📎 paperclip** next to the message box, or the **Check an ad image** card on the welcome screen
+   - drag the image anywhere onto the page
+   - paste a screenshot into the message box (**Ctrl + V**)
+
+   A preview appears above the message box (click **×** to remove it).
+2. Optionally type a note, e.g. *"This will run on a billboard along EDSA"*. It's given to the AI as
+   context, never treated as part of the ad.
+3. Press **Enter**. A progress line shows what's happening (*Reading the image… → Checking the ASC
+   rules… → Double-checking the findings…*). It takes **about 3–6 minutes** on a 16 GB graphics card.
+   Under the result you can open:
+   - **What the AI saw in the image**: the description the findings are based on
+   - **Sources**: what the AI looked up in the ASC Guidebook, and what it found
+   - **Thinking**: the AI's reasoning
 4. **Read the result:**
 
    | Result | What you see |
@@ -266,6 +291,8 @@ If something is missing, a yellow **"Setup needed"** bar says exactly what to do
    - an appendix with what the AI saw in the image, so anyone can see what the findings were based on
 
    It's saved to your Downloads folder as e.g. `ASC-prescreen-golden-lager-2026-10-23.pdf`.
+7. **Ask follow-ups** in the same chat, e.g. *"How do I fix issue 1?"* or *"Why is the energy claim
+   not allowed?"*. The assistant knows the result of the check above.
 
 > The decision and notes are **not saved** by the app. Download the PDF to keep them. Choose
 > the decision and write the notes **before** clicking the button.
@@ -285,7 +312,23 @@ web server first if both would run at the same time; they share the graphics car
 
 ## 6. How it works inside
 
-### Step by step
+### Two paths
+
+`server.py` receives each message at `/api/chat`:
+
+- **No image:** `chat.py` sends the chat instructions (`prompts/chat.md`) plus the **ASC rule
+  checklist** (taken from `prompts/judge.md`, so both always use the same rules), the recent
+  conversation and the question to the judge model. It may search the guidebook up to 3 times, then
+  answers. Older messages are dropped when the conversation gets long, so the rules always fit in the
+  AI's memory. Finally, `chat.py` flags measurements in the answer that don't appear in the checklist
+  or the passages it read.
+- **Image attached:** the three-step check below (`pipeline.py`). The text of the message, if any,
+  is passed to the judge as a clearly marked reviewer note.
+
+After a check, the page adds a short summary of the result (verdict, problems, fixes and the image
+description) to the conversation, so follow-up questions can use it.
+
+### The image check, step by step
 
 **Step 1: describe** (`vision.py`)
 - Sends the image to **minicpm-v:8b** through Ollama, with two prompts:
@@ -342,11 +385,12 @@ Both versions use **the same Qdrant collection**, so n8n and this app can run si
 
 ```
 Langchain/
-├── server.py              ← the web server: serves the page, runs checks, reports status
+├── server.py              ← the web server: serves the page, runs checks and chat answers, reports status
+├── chat.py                ← chat answers (messages without an image)
 ├── check.py               ← check one image from the terminal
 ├── pipeline.py            ← runs the three steps in order and reports progress
 ├── vision.py              ← step 1: describe the image (minicpm-v)
-├── judge.py               ← step 2: check the rules (gpt-oss), with guideline searches
+├── judge.py               ← step 2: check the rules (gpt-oss); also the "think, search, answer" loop used by chat
 ├── guidelines.py          ← search the asc_guidelines collection in Qdrant
 ├── checks.py              ← step 3: verify the AI's answer (port of the n8n code node)
 ├── report.py              ← makes the PDF report
@@ -356,6 +400,7 @@ Langchain/
 │   ├── describe_system.md ← vision model: who it is (describe only, English only)
 │   ├── describe.md        ← vision model: the 7 sections to write
 │   ├── judge.md           ← judge model: the full ASC checklist and output format
+│   ├── chat.md            ← chat instructions (the checklist from judge.md is added to it)
 │   └── rules.json         ← plain-language summary of every ASC rule ID
 ├── static/
 │   └── index.html         ← the web page (HTML, CSS and JavaScript in one file)
@@ -372,6 +417,7 @@ this order: `config.py` → `vision.py` → `guidelines.py` → `judge.py` → `
 
 ```
 server.py ──▶ report.py (PDF report)
+server.py ──▶ chat.py ──▶ judge.py (search loop) ──▶ guidelines.py
 server.py ─┐
 check.py ──┴─▶ pipeline.py ─┬─▶ vision.py
                             ├─▶ judge.py ──▶ guidelines.py ──▶ Qdrant (asc_guidelines)
@@ -400,6 +446,7 @@ All settings are optional. Copy `.env.example` to `.env`, edit it, and restart t
 | `MAX_SEARCHES` | `5` | Most guideline searches per image. |
 | `PORT` | `8000` | Web page address: `http://127.0.0.1:<PORT>`. |
 | `MAX_IMAGE_MB` | `20` | Largest image accepted. |
+| `CHAT_HISTORY` | `12` | How many earlier chat messages the AI sees when answering (older ones are dropped first if they don't fit). |
 
 ---
 
@@ -412,7 +459,8 @@ The instructions are plain text files in `prompts/`. Edit them in any editor and
 | File | Change it to… |
 |---|---|
 | `describe.md` | ask the vision model to describe something more or differently |
-| `judge.md` | change the ASC checklist, strictness or output format. It **must** keep the `{description}` placeholder, and the JSON output format that `checks.py` reads (`verdict`, `reasons`, `checks_passed`, …). |
+| `chat.md` | change how the chat assistant answers (tone, length, accuracy rules). The ASC checklist is added to it automatically from `judge.md`. |
+| `judge.md` | change the ASC checklist, strictness or output format (the chat uses the same checklist). It **must** keep the `{description}` placeholder, and the JSON output format that `checks.py` reads (`verdict`, `reasons`, `checks_passed`, …). |
 | `rules.json` | change the plain-language rule summaries shown in the results |
 
 > If you edit the prompts in n8n too, copy the changes here (or the other way round). The two
@@ -478,7 +526,7 @@ A normal check takes about 3 minutes on a 16 GB NVIDIA card.
 ### "Could not check: The AI did not return valid JSON"
 
 The judge's answer was cut off or badly formatted. Run the check again. If it keeps happening,
-open **Thought process**. If the reasoning stops mid-sentence, the AI ran out of memory: lower
+open **Thinking** under the result. If the reasoning stops mid-sentence, the AI ran out of memory: lower
 `MAX_SEARCHES` to 3.
 
 ### "The image description came back in another language"
@@ -507,7 +555,12 @@ Set `PORT=8001` in `.env` and open `http://127.0.0.1:8001`.
 - **Documents can't be checked.** Claims that need proof (sales data for "No. 1", research for
   "best", permits, licenses) are noted as needing documents, not flagged as violations.
 - **Images only:** JPG and PNG. No video, audio or multi-page PDFs.
-- **One check at a time.** Others wait in line (the page says "Waiting for another check").
+- **One answer at a time.** Checks and chat answers share the graphics card, so a second one waits
+  (the page says "Waiting for the current check to finish"). Stopping an answer with **■** stops the
+  page, but the AI finishes its current step in the background first.
+- **Chat answers can still be wrong.** The assistant is told to stick to the ASC rules, and made-up
+  measurements are flagged, but always check important answers against the ASC Guidebook.
+- **The conversation isn't saved.** Reloading the page or clicking **New chat** clears it.
 - **Decisions aren't saved.** Use **Download PDF report**.
 - **The rules are from the ASC Guidebook of March 2019** (the version loaded in Qdrant and
   summarized in the prompts). Update both if ASC publishes changes.
@@ -522,20 +575,24 @@ The server only accepts connections from this computer (`127.0.0.1`).
 |---|---|---|
 | `GET` | `/` | The web page |
 | `GET` | `/api/status` | Readiness: `{ollama, missing_models, qdrant, passages, judge_tools, device, busy, …}` |
-| `POST` | `/api/check` | Check an image. Send it as form field `image` (JPG/PNG). Replies with a stream of JSON lines. |
+| `POST` | `/api/chat` | Send a chat message. Form fields: `message` (text), `history` (JSON list of `{role, content}`), and optionally `image` (JPG/PNG). With an image it runs the check; without, it answers the question. Replies with a stream of JSON lines. |
+| `POST` | `/api/check` | Check an image without chat. Send it as form field `image`. Replies with a stream of JSON lines. |
 | `POST` | `/api/report` | Make the PDF report. Form fields: `image` (the same image) and `data` (JSON: `{result, decision, notes, file_name}`). Replies with the PDF file. |
 
-`/api/check` sends one JSON object per line:
+`/api/chat` and `/api/check` send one JSON object per line:
 
 | `type` | Fields | Meaning |
 |---|---|---|
 | `queued` | | Another check is running; this one waits |
 | `stage` | `value`: `describe` / `judge` / `verify` | A new step started |
 | `describe` | `text` | A piece of the image description |
+| `token` | `text` | A piece of a chat answer |
+| `warning` | `text` | A chat answer mentions measurements not found in the ASC rules |
 | `thinking` | `text` | A piece of the judge's reasoning |
 | `search` | `query`, `result` | A guideline search and the passages found |
 | `tokens` | `value` | How full the judge's memory is |
 | `result` | `result`, `reasons`, `checks_passed`, `approval_summary`, `removed_reasons`, `description`, `seconds`, … | The final result |
+| `done` | | Finished |
 | `error` | `message` | Something went wrong |
 
 Example from PowerShell:

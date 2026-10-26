@@ -21,7 +21,9 @@ from config import (  # Settings
     QDRANT_URL,  # Where Qdrant runs
     VISION_MODEL,  # Step 1 model
 )  # End of settings
-from judge import model_capabilities  # What the judge model can do
+from chat import chat_stream  # Chat answers (no image)
+from embed_server import embedding_url  # Processor-only Ollama copy for guideline searches
+from judge import model_capabilities, warm_up  # What the judge model can do; loading it ahead of time
 from pipeline import check_image  # The whole check
 from report import build_report  # Makes the PDF report
 
@@ -30,13 +32,22 @@ check_lock = threading.Lock()  # Only one check at a time: the AI models share t
 STATIC_DIR = Path(__file__).parent / "static"  # Folder that holds the web page
 
 
+def get_ready():  # Runs once in the background when the server starts, so the first question is fast
+    embedding_url()  # Start the processor-only Ollama copy for guideline searches
+    with check_lock:  # Don't compete with a check that started right away
+        warm_up()  # Load the judge and pre-read the chat instructions
+
+
+threading.Thread(target=get_ready, daemon=True).start()  # Start getting ready without delaying the web page
+
+
 def event(kind, **data):  # Builds one line of the live progress stream
     return json.dumps({"type": kind, **data}) + "\n"  # One JSON object per line
 
 
 @app.get("/")  # The home page
 def index():  # Sends the web page to the browser
-    return FileResponse(STATIC_DIR / "index.html")  # The whole UI is in this one file
+    return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store"})  # The whole UI is in this one file; never cached, so updates show up on reload
 
 
 @app.get("/api/status")  # Health check shown at the top of the page
@@ -66,33 +77,56 @@ def status():  # Reports whether Ollama, the models and the guidelines are ready
     return info  # Send it to the browser
 
 
-@app.post("/api/check")  # Check one ad image
-def check(image: UploadFile = File(...)):  # Receives the uploaded image; streams progress and the result back
+def read_image(image):  # Checks an uploaded image and returns its bytes
     suffix = Path(image.filename or "").suffix.lower()  # File extension, e.g. ".png"
     if suffix not in IMAGE_TYPES:  # Not a supported image
         raise HTTPException(400, f"Unsupported file type. Upload {', '.join(IMAGE_TYPES)}.")  # Refuse it
     data = image.file.read()  # The image itself
     if len(data) > MAX_IMAGE_MB * 1024 * 1024:  # Too big
         raise HTTPException(400, f"The image is larger than {MAX_IMAGE_MB} MB.")  # Refuse it
+    return data  # The image
 
+
+def stream_events(make_events):  # Runs a check or chat answer (one at a time) and sends its events as lines of JSON
     def stream():  # Produces the live progress
-        if not check_lock.acquire(blocking=False):  # Another check is running
+        if not check_lock.acquire(blocking=False):  # Another check or answer is running
             yield event("queued")  # Tell the page it has to wait
             check_lock.acquire()  # Wait for our turn
         try:  # Always release the lock, even if something fails
-            for kind, payload in check_image(data):  # Run the check
-                if kind in ("describe", "thinking"):  # Text pieces
-                    yield event(kind, text=payload)  # Send the text
+            for kind, payload in make_events():  # Each event
+                if isinstance(payload, dict):  # "search" and "result" are already dictionaries
+                    yield event(kind, **payload)  # Send their fields
                 elif kind in ("stage", "tokens"):  # Simple values
                     yield event(kind, value=payload)  # Send the value
-                else:  # "search" and "result" are already dictionaries
-                    yield event(kind, **payload)  # Send their fields
+                else:  # Text: description, thinking, answer text, warning
+                    yield event(kind, text=payload)  # Send the text
+            yield event("done")  # Finished
         except Exception as e:  # Something went wrong (e.g. Ollama or Qdrant not running)
             yield event("error", message=str(e))  # Show the error on the page
         finally:  # Whatever happened
-            check_lock.release()  # Let the next check run
+            check_lock.release()  # Let the next one run
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")  # Send lines as they are produced
+
+
+@app.post("/api/chat")  # Send a chat message, with or without an ad image
+def chat(message: str = Form(""), history: str = Form("[]"), image: UploadFile | None = File(None)):  # Text, earlier messages (JSON), optional image
+    try:  # The history must be valid JSON
+        earlier = json.loads(history)  # [{"role": "user" | "assistant", "content": "..."}]
+    except json.JSONDecodeError:  # Broken history
+        earlier = []  # Start without it
+    if image is not None and image.filename:  # An image is attached: check it against the ASC guidelines
+        data = read_image(image)  # The image
+        return stream_events(lambda: check_image(data, note=message))  # The full check; the message is passed on as context
+    if not message.strip():  # No image and no text
+        raise HTTPException(400, "Type a message or attach an image.")  # Nothing to do
+    return stream_events(lambda: chat_stream(message, earlier if isinstance(earlier, list) else []))  # A chat answer
+
+
+@app.post("/api/check")  # Check one ad image (without chat; used by scripts)
+def check(image: UploadFile = File(...)):  # Receives the uploaded image; streams progress and the result back
+    data = read_image(image)  # The image
+    return stream_events(lambda: check_image(data))  # The full check
 
 
 @app.post("/api/report")  # Make the PDF report of a finished check

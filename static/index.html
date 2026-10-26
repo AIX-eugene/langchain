@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASC Ad Pre-screen</title>
+<title>ASC Assistant</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* ---------- Colors (light theme) ---------- */
@@ -11,10 +11,13 @@
   --bg: #f4f5f2; --panel: #ffffff; --panel-2: #f1f1ee; --border: #e3e3de;
   --text: #1c1c1a; --muted: #6b6b66;
   --accent: #0f766e; --accent-soft: #e6f3f1; --accent-text: #ffffff;
+  --user-bubble: #1c1c1a; --user-text: #ffffff;
   --bad: #b42318; --bad-soft: #fef3f2; --bad-line: #fecdca;
   --good: #067647; --good-soft: #ecfdf3; --good-line: #abefc6;
   --warn: #b54708; --warn-soft: #fffaeb; --warn-line: #fedf89;
   --info: #1849a9; --info-soft: #eff8ff; --info-line: #b2ddff;
+  --code-bg: #f3f3f0;
+  --scroll-thumb: #c4c4bd;
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: "Cascadia Code", Consolas, ui-monospace, Menlo, monospace;
@@ -26,232 +29,239 @@
     --bg: #131312; --panel: #1c1c1b; --panel-2: #252523; --border: #30302d;
     --text: #ececea; --muted: #9a9a94;
     --accent: #2dd4bf; --accent-soft: #15302d; --accent-text: #0b1a18;
+    --user-bubble: #ececea; --user-text: #131312;
     --bad: #f97066; --bad-soft: #2d1716; --bad-line: #5c2622;
     --good: #4ade80; --good-soft: #13291c; --good-line: #1f4d31;
     --warn: #fbbf24; --warn-soft: #2b2310; --warn-line: #5a4613;
     --info: #84adff; --info-soft: #172036; --info-line: #2b3d66;
+    --code-bg: #232321;
+    --scroll-thumb: #63635e;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
     color-scheme: dark;
   }
 }
 
-/* ---------- Page ---------- */
+/* ---------- Page layout ---------- */
 * { box-sizing: border-box; }
-html, body { margin: 0; }
-body { background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; cursor: pointer; }
-.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px 40px; }
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 
 /* Header */
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 0; }
-.brand { display: flex; align-items: center; gap: 12px; }
-.logo { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); display: grid; place-items: center; flex: none; }
-.logo svg { width: 22px; height: 22px; }
-.brand h1 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
-.brand p { margin: 0; font-size: 12.5px; color: var(--muted); }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); white-space: nowrap; }
-.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.chip.ok .dot { background: var(--good); } .chip.bad .dot { background: var(--bad); } .chip.warn .dot { background: var(--warn); }
-.chip.bad { color: var(--bad); } .chip.warn { color: var(--warn); }
-
-.setup { display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: 14px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.logo { width: 30px; height: 30px; border-radius: 10px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.logo svg { width: 17px; height: 17px; }
+.brand h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+.header-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.btn { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 7px 14px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: background .15s; }
+.btn:hover { background: var(--panel-2); }
+.btn svg { width: 16px; height: 16px; }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.05); }
+.btn:disabled { opacity: .45; cursor: default; }
+.setup { display: none; margin: 12px auto 0; max-width: 860px; width: calc(100% - 40px); padding: 10px 14px; border-radius: 12px; background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: 14px; }
 .setup code { font-family: var(--mono); background: var(--panel); padding: 1px 6px; border-radius: 5px; color: var(--text); }
 
-/* Two-column layout */
-.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 18px; }
-.card-title { font-size: 12px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.left { position: sticky; top: 16px; }
+/* Conversation */
+.messages { flex: 1; min-height: 0; overflow-y: scroll; padding: 28px 20px 12px; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+.messages::-webkit-scrollbar { width: 10px; }
+.messages::-webkit-scrollbar-track { background: transparent; }
+.messages::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; border: 2px solid var(--bg); }
+.messages::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+.thread { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+.msg.user { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.msg.user .bubble { background: var(--user-bubble); color: var(--user-text); padding: 9px 15px; border-radius: 18px 18px 4px 18px; max-width: 80%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.user img { max-width: min(260px, 70%); max-height: 260px; border-radius: 12px; border: 1px solid var(--border); display: block; }
+.msg.ai { display: flex; gap: 12px; }
+.msg.ai .body { flex: 1; min-width: 0; }
 
-/* Upload */
-.drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 320px; border: 2px dashed var(--border); border-radius: 14px; text-align: center; padding: 24px; cursor: pointer; transition: border-color .15s, background .15s; }
-.drop:hover, .drop.drag { border-color: var(--accent); background: var(--accent-soft); }
-.drop svg { width: 40px; height: 40px; color: var(--accent); margin-bottom: 6px; }
-.drop strong { font-size: 16px; }
-.drop span { color: var(--muted); font-size: 13.5px; }
-.preview { display: none; }
-.preview img { display: block; width: 100%; max-height: 62vh; object-fit: contain; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
-.file-meta { display: flex; justify-content: space-between; gap: 8px; margin: 10px 0 14px; font-size: 13px; color: var(--muted); }
-.file-meta b { color: var(--text); font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.actions { display: flex; gap: 8px; }
-.btn { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 10px 16px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background .15s, opacity .15s; }
-.btn:hover { background: var(--panel-2); }
-.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; flex: 1; }
-.btn.primary:hover { filter: brightness(1.05); background: var(--accent); }
-.btn:disabled { opacity: .45; cursor: default; }
+/* Welcome screen */
+.empty { max-width: 640px; margin: 6vh auto 0; text-align: center; }
+.empty .logo { width: 50px; height: 50px; border-radius: 14px; margin: 0 auto 16px; }
+.empty .logo svg { width: 26px; height: 26px; }
+.empty h2 { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 0 0 6px; }
+.empty p { color: var(--muted); margin: 0 0 24px; }
+.starters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+.starter { text-align: left; border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 12px 14px; font-size: 14px; box-shadow: var(--shadow); transition: border-color .15s, transform .15s; }
+.starter:hover { border-color: var(--accent); transform: translateY(-1px); }
+.starter b { display: block; font-weight: 600; }
+.starter small { color: var(--muted); font-size: 12.5px; }
+.starter.main { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; background: var(--accent-soft); border-color: transparent; }
+.starter.main svg { width: 26px; height: 26px; color: var(--accent); flex: none; }
 
-/* Empty state */
-.intro h2 { font-size: 22px; margin: 4px 0 6px; letter-spacing: -.02em; }
-.intro p { color: var(--muted); margin: 0 0 18px; }
-.how { display: grid; gap: 10px; }
-.how > div { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
-.how b { display: block; }
-.how span { color: var(--muted); font-size: 13.5px; }
-.num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
-
-/* Progress steps */
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-.step { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; min-width: 0; }
-.step .icon { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-2); color: var(--muted); font-size: 12px; font-weight: 700; }
-.step b { display: block; font-size: 13.5px; }
-.step small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.step.active { border-color: var(--accent); background: var(--accent-soft); }
-.step.active .icon { background: transparent; }
-.step.done .icon { background: var(--good-soft); color: var(--good); }
-.spinner { width: 18px; height: 18px; border: 2.5px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.status-line { font-size: 13px; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; gap: 8px; }
-
-/* Collapsible detail panels */
-details.panel { border: 1px solid var(--border); border-radius: 12px; margin-top: 10px; }
-details.panel > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14px; list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
+/* Small helpers inside answers */
+details.panel { margin-top: 6px; }
+details.panel[open] { border: 1px solid var(--border); border-radius: 12px; }
+details.panel > summary { cursor: pointer; padding: 4px 10px; font-weight: 500; font-size: 13px; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; }
 details.panel > summary::-webkit-details-marker { display: none; }
-details.panel > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; margin-right: 2px; }
+details.panel > summary::before { content: ""; width: 6px; height: 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; margin-right: 2px; }
 details.panel[open] > summary::before { transform: rotate(45deg); }
 details.panel > summary .count { margin-left: auto; font-weight: 500; color: var(--muted); font-size: 12.5px; }
 .panel-body { padding: 0 14px 12px; }
-.pre { white-space: pre-wrap; font-size: 13.5px; color: var(--text); max-height: 340px; overflow-y: auto; background: var(--panel-2); border-radius: 8px; padding: 10px 12px; margin: 0; }
+.extras { margin-top: 8px; }
+.pre { white-space: pre-wrap; font-size: 13px; max-height: 320px; overflow-y: auto; background: var(--panel-2); border-radius: 8px; padding: 10px 12px; margin: 0; }
 .pre.muted { color: var(--muted); }
-.search { border-top: 1px solid var(--border); padding: 8px 0; }
+.search { border-top: 1px solid var(--border); padding: 7px 0; }
 .search:first-child { border-top: 0; }
 .search summary { cursor: pointer; font-size: 13.5px; }
-.search summary b { font-weight: 600; }
+.typing { display: inline-flex; gap: 4px; padding: 8px 0; }
+.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite both; }
+.typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.note { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: 13.5px; }
+.error-box { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); border-radius: 10px; padding: 10px 14px; white-space: pre-wrap; }
+.activity { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.activity .timer { margin-left: auto; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.spinner { width: 15px; height: 15px; border: 2.5px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Verdict and findings */
-.verdict { border-radius: 12px; padding: 14px 16px; border: 1px solid; margin-bottom: 4px; }
-.verdict .v { font-size: 19px; font-weight: 750; letter-spacing: -.01em; }
-.verdict p { margin: 4px 0 0; color: var(--text); }
+/* Answer formatting (Markdown) */
+.md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol, .md pre, .md table, .md blockquote { margin: 0 0 12px; }
+.md h3, .md h4, .md h5, .md h6 { margin: 18px 0 8px; line-height: 1.3; }
+.md h3 { font-size: 18px; } .md h4 { font-size: 16px; } .md h5, .md h6 { font-size: 15px; }
+.md ul, .md ol { padding-left: 22px; } .md li { margin: 3px 0; }
+.md code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); padding: 1px 5px; border-radius: 5px; }
+.md pre { background: var(--code-bg); border: 1px solid var(--border); padding: 12px 14px; border-radius: 10px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; font-size: 14px; }
+.md th, .md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.md th { background: var(--panel-2); font-weight: 600; }
+.md blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--muted); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* Check card */
+.verdict { border-radius: 12px; padding: 12px 14px; border: 1px solid; }
+.verdict .v { font-size: 18px; font-weight: 750; }
+.verdict p { margin: 2px 0 0; }
 .verdict.bad { background: var(--bad-soft); border-color: var(--bad-line); } .verdict.bad .v { color: var(--bad); }
 .verdict.good { background: var(--good-soft); border-color: var(--good-line); } .verdict.good .v { color: var(--good); }
 .verdict.warn { background: var(--warn-soft); border-color: var(--warn-line); } .verdict.warn .v { color: var(--warn); }
-.issue { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-top: 12px; display: flex; gap: 12px; }
-.issue .n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--bad-soft); color: var(--bad); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
-.issue .body { flex: 1; min-width: 0; }
-.issue h3 { font-size: 15px; margin: 2px 0 0; line-height: 1.4; }
-.lbl { font-size: 11px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
-.rule { background: var(--info-soft); border: 1px solid var(--info-line); border-radius: 8px; padding: 10px 12px; color: var(--info); font-size: 14px; }
-.rule b { display: block; }
-.rule .why { color: var(--text); margin-top: 6px; }
-.evidence { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; font-style: italic; font-size: 14px; overflow-wrap: anywhere; }
-.fix { color: var(--good); font-size: 14px; }
-.ref { margin-top: 10px; font-size: 12px; color: var(--muted); }
-.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-line); margin-left: 6px; vertical-align: 2px; }
-.passed { border: 1px solid var(--border); border-radius: 12px; margin-top: 12px; }
-.passed div { display: flex; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--border); }
-.passed div:first-child { border-top: 0; }
-.passed .tick { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--good-soft); color: var(--good); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
-.passed small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
-.removed li { font-size: 13.5px; color: var(--muted); margin: 3px 0; }
-
-/* Reviewer box */
-.review { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--warn-soft); border: 1px solid var(--warn-line); }
-.review b { color: var(--warn); }
-.review p { margin: 2px 0 10px; font-size: 14px; }
-.decision { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.decision label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); cursor: pointer; font-size: 14px; }
+.issue { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-top: 10px; display: flex; gap: 12px; }
+.issue .n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--bad-soft); color: var(--bad); font-weight: 700; font-size: 12.5px; display: grid; place-items: center; }
+.issue .ib { flex: 1; min-width: 0; }
+.issue h3 { font-size: 14.5px; margin: 1px 0 0; line-height: 1.4; }
+.lbl { font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 10px 0 3px; }
+.rule { background: var(--info-soft); border: 1px solid var(--info-line); border-radius: 8px; padding: 8px 11px; color: var(--info); font-size: 13.5px; }
+.rule b { display: block; } .rule .why { color: var(--text); margin-top: 5px; }
+.evidence { background: var(--panel-2); border-radius: 8px; padding: 7px 10px; font-style: italic; font-size: 13.5px; overflow-wrap: anywhere; }
+.fix { color: var(--good); font-size: 13.5px; }
+.ref { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-line); margin-left: 6px; vertical-align: 2px; }
+.passed { border: 1px solid var(--border); border-radius: 12px; margin-top: 10px; }
+.passed > div { display: flex; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.passed > div:first-child { border-top: 0; }
+.passed .tick { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--good-soft); color: var(--good); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.passed small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.removed li { font-size: 13px; color: var(--muted); margin: 3px 0; }
+.review { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--warn-soft); border: 1px solid var(--warn-line); }
+.review > b { color: var(--warn); }
+.review p { margin: 2px 0 8px; font-size: 13.5px; }
+.decision { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.decision label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); cursor: pointer; font-size: 13.5px; }
 .decision input { accent-color: var(--accent); }
-.review textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 14px; padding: 8px 10px; }
-.review .actions { margin-top: 10px; justify-content: flex-end; }
-.error-box { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; }
+.review textarea { width: 100%; min-height: 56px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 13.5px; padding: 7px 10px; }
+.review .row { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+/* Message box */
+.composer-wrap { padding: 8px 20px 16px; position: relative; }
+.jump { position: absolute; top: -46px; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border); background: var(--panel); color: var(--text); box-shadow: var(--shadow); display: grid; place-items: center; z-index: 5; }
+.jump[hidden] { display: none; }
+.jump:hover { background: var(--panel-2); }
+.jump svg { width: 18px; height: 18px; }
+.composer { max-width: 860px; margin: 0 auto; background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 8px; transition: border-color .15s; }
+.composer:focus-within { border-color: var(--accent); }
+.attachment { display: none; align-items: center; gap: 10px; padding: 4px 4px 8px; }
+.attachment img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.attachment .meta { flex: 1; min-width: 0; font-size: 13px; }
+.attachment .meta b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attachment .meta span { color: var(--accent); }
+.icon-btn { border: 0; background: none; padding: 7px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.icon-btn:hover { background: var(--panel-2); color: var(--text); }
+.icon-btn svg { width: 20px; height: 20px; }
+.row-input { display: flex; align-items: flex-end; gap: 6px; }
+.row-input textarea { flex: 1; min-width: 0; overflow-y: auto; scrollbar-width: none; border: 0; outline: 0; resize: none; background: none; color: var(--text); font: inherit; padding: 7px 4px; max-height: 200px; line-height: 1.5; }
+.row-input textarea::placeholder { color: var(--muted); }
+.send { width: 38px; height: 38px; border-radius: 12px; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; flex: none; }
+.send:disabled { opacity: .35; cursor: default; }
+.send svg { width: 18px; height: 18px; }
+.hint { max-width: 860px; margin: 7px auto 0; font-size: 12px; color: var(--muted); text-align: center; }
+.drop-overlay { display: none; position: fixed; inset: 0; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 3px dashed var(--accent); z-index: 50; align-items: center; justify-content: center; font-size: 20px; font-weight: 650; color: var(--accent); pointer-events: none; }
+.drop-overlay.show { display: flex; }
 
 /* Phones and small windows */
-@media (max-width: 900px) {
-  .grid { grid-template-columns: 1fr; }
-  .left { position: static; }
-  .drop { min-height: 220px; }
-}
-@media (max-width: 560px) {
-  .wrap { padding: 0 16px 32px; }
-  .steps { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  header { padding: 10px 16px; }
+  .messages { padding: 20px 16px 10px; }
+  .composer-wrap { padding: 8px 16px 12px; }
+  .starters { grid-template-columns: 1fr; }
 }
 
-/* Printing (Ctrl+P): only the image and the result, always in light colors (browsers drop dark backgrounds, which made the text invisible) */
+/* Printing (Ctrl+P): the conversation in light colors */
 @media print {
-  :root {
-    --bg: #fff; --panel: #fff; --panel-2: #f4f4f2; --border: #d9d9d4; --text: #1c1c1a; --muted: #5f5f5a;
-    --accent: #0f766e; --accent-soft: #e6f3f1; --bad: #b42318; --bad-soft: #fef3f2; --bad-line: #fecdca;
-    --good: #067647; --good-soft: #ecfdf3; --good-line: #abefc6; --warn: #b54708; --warn-soft: #fffaeb; --warn-line: #fedf89;
-    --info: #1849a9; --info-soft: #eff8ff; --info-line: #b2ddff; color-scheme: light;
-  }
+  :root { --bg: #fff; --panel: #fff; --panel-2: #f4f4f2; --border: #d9d9d4; --text: #1c1c1a; --muted: #5f5f5a; --user-bubble: #eee; --user-text: #1c1c1a;
+    --bad: #b42318; --bad-soft: #fef3f2; --good: #067647; --good-soft: #ecfdf3; --warn: #b54708; --warn-soft: #fffaeb; --info: #1849a9; --info-soft: #eff8ff; color-scheme: light; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { background: #fff; }
-  .issue, .verdict, .passed div { break-inside: avoid; }
-  header .chips, .setup, .actions, .drop, details.panel:not(.keep), .status-line, .steps, .review .actions { display: none !important; }
-  .card { box-shadow: none; border: 0; padding: 0; }
-  .grid { grid-template-columns: 2fr 3fr; }
-  .left { position: static; }
-  .preview img { max-height: 520px; }
+  .app { height: auto; } .messages { overflow: visible; }
+  header .header-right, .setup, .composer-wrap, details.panel, .review .row { display: none !important; }
+  .issue, .verdict, .passed > div { break-inside: avoid; }
 }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
   <header>
     <div class="brand">
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-      <div>
-        <h1>ASC Ad Pre-screen</h1>
-        <p>AI check of OOH ads against the Ad Standards Council guidelines · runs on this computer</p>
-      </div>
+      <h1>ASC Assistant</h1>
     </div>
-    <div class="chips" id="chips"><span class="chip"><span class="dot"></span>Connecting…</span></div>
+    <div class="header-right">
+      <button class="btn" id="newChat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New chat</button>
+    </div>
   </header>
-
   <div class="setup" id="setup"></div>
 
-  <div class="grid">
-    <!-- Left: the ad image -->
-    <section class="card left">
-      <div class="card-title"><span>Ad image</span></div>
-      <label class="drop" id="drop">
-        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
-        <strong>Drop an ad image here</strong>
-        <span>or click to choose · JPG or PNG</span>
-      </label>
-      <div class="preview" id="preview">
-        <img id="previewImg" alt="The ad being checked">
-        <div class="file-meta"><b id="fileName"></b><span id="fileSize"></span></div>
-        <div class="actions">
-          <button class="btn primary" id="checkBtn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-            Check this ad
+  <div class="messages" id="messages">
+    <div class="thread" id="thread">
+      <div class="empty" id="empty">
+        <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <h2>How can I help with your ad?</h2>
+        <p>Ask anything about the Ad Standards Council guidelines, or attach an ad image and I'll check it.</p>
+        <div class="starters">
+          <button class="starter main" id="starterAttach">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
+            <div><b>Check an ad image</b><small>Attach a JPG or PNG and I'll check it against the ASC guidelines.</small></div>
           </button>
-          <button class="btn" id="changeBtn">Choose another</button>
+          <button class="starter" data-q="What must an alcohol billboard include to pass ASC screening?"><b>Alcohol ads</b><small>What must a beer billboard include?</small></button>
+          <button class="starter" data-q="What must a food supplement ad include, and what claims are not allowed?"><b>Food supplements</b><small>Required statement and banned claims</small></button>
+          <button class="starter" data-q="Can a billboard show models in swimwear?"><b>Decency rules</b><small>Can a billboard show swimwear?</small></button>
+          <button class="starter" data-q="When can an ad say it is No. 1 or the best?"><b>Claims</b><small>When can an ad say "No. 1" or "best"?</small></button>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
 
-    <!-- Right: progress and result -->
-    <section class="card" id="right">
-      <div class="intro" id="intro">
-        <h2>Pre-screen an ad in three steps</h2>
-        <p>Upload an OOH ad on the left. The check takes a few minutes and everything stays on this computer.</p>
-        <div class="how">
-          <div><span class="num">1</span><div><b>Describe the image</b><span>A vision model reads all text, claims, warnings, people and visuals in the ad.</span></div></div>
-          <div><span class="num">2</span><div><b>Check the ASC rules</b><span>A reasoning model compares the description with the ASC Code of Ethics, searching the guidebook as needed.</span></div></div>
-          <div><span class="num">3</span><div><b>Verify the findings</b><span>Violations that aren't backed by the image are removed, and missed decency issues are added.</span></div></div>
-        </div>
+  <div class="composer-wrap">
+    <button type="button" class="jump" id="jumpBtn" aria-label="Scroll to the latest message" title="Scroll to the latest message" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+    <form class="composer" id="composer">
+      <div class="attachment" id="attachment">
+        <img id="attachImg" alt="Attached image">
+        <div class="meta"><b id="attachName"></b><span>Will be checked against the ASC guidelines</span></div>
+        <button type="button" class="icon-btn" id="removeAttach" aria-label="Remove image" title="Remove image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
-
-      <div id="work" hidden>
-        <div class="steps">
-          <div class="step" data-step="describe"><span class="icon">1</span><div><b>Describe</b><small id="visionName">Vision model</small></div></div>
-          <div class="step" data-step="judge"><span class="icon">2</span><div><b>Check rules</b><small id="judgeName">Judge model</small></div></div>
-          <div class="step" data-step="verify"><span class="icon">3</span><div><b>Verify</b><small>Evidence check</small></div></div>
-        </div>
-        <div class="status-line"><span id="statusText">Starting…</span><span id="timer">0:00</span></div>
-
-        <div id="result"></div>
-
-        <details class="panel" id="descPanel"><summary>What the AI sees in the image</summary><div class="panel-body"><pre class="pre" id="descText"></pre></div></details>
-        <details class="panel" id="searchPanel" hidden><summary>Guideline searches <span class="count" id="searchCount"></span></summary><div class="panel-body" id="searchList"></div></details>
-        <details class="panel" id="thinkPanel" hidden><summary>Thought process</summary><div class="panel-body"><pre class="pre muted" id="thinkText"></pre></div></details>
+      <div class="row-input">
+        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden>
+        <button type="button" class="icon-btn" id="attachBtn" aria-label="Attach an ad image" title="Attach an ad image (optional)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-9 9a1.8 1.8 0 01-2.6-2.6l8.3-8.3"/></svg></button>
+        <textarea id="input" rows="1" placeholder="Message ASC Assistant…"></textarea>
+        <button class="send" id="sendBtn" type="submit" aria-label="Send" disabled></button>
       </div>
-    </section>
+    </form>
+    <div class="hint">AI can make mistakes. Results are guidance, not an official ASC decision.</div>
   </div>
 </div>
+<div class="drop-overlay" id="dropOverlay">Drop the ad image to attach it</div>
 
 <script>
 // ---------- Shortcuts ----------
@@ -259,82 +269,181 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmtSize = (b) => b < 1048576 ? Math.round(b / 1024) + " KB" : (b / 1048576).toFixed(1) + " MB";
 const fmtTime = (s) => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-const STEP_TEXT = { describe: "Describing the image…", judge: "Checking the ASC rules…", verify: "Verifying the findings…" };
+const thread = $("thread"), messagesEl = $("messages"), input = $("input"), sendBtn = $("sendBtn");
+const LOGO = '<div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>';
+const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>';
+const ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
 
-let file = null;       // The chosen image
-let running = false;   // Is a check in progress?
-let timerId = null;    // Updates the elapsed time
+// ---------- Conversation state ----------
+let history = [];       // What the AI remembers: [{role, content}]
+let attached = null;    // The image attached to the next message (optional)
+let controller = null;  // Lets the Stop button cancel
+let msgCount = 0;       // Gives each message unique ids
+sendBtn.innerHTML = ICON_SEND;
 
-// ---------- Choosing an image ----------
-function choose(f) {
-  if (!f || running) return;
-  if (!/\.(jpe?g|png)$/i.test(f.name)) { alert("Please choose a JPG or PNG image."); return; }
-  file = f;
-  $("previewImg").src = URL.createObjectURL(f);
-  $("fileName").textContent = f.name;
-  $("fileSize").textContent = fmtSize(f.size);
-  $("drop").style.display = "none";
-  $("preview").style.display = "block";
-  $("intro").hidden = false; $("work").hidden = true;
+// ---------- Markdown → HTML (small built-in renderer, nothing downloaded) ----------
+function inline(s) {     // Bold, italic, inline code, links. Input is already escaped.
+  return s.split(/(`[^`]+`)/).map((part, i) => {
+    if (i % 2) return "<code>" + part.slice(1, -1) + "</code>";
+    return part
+      .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }).join("");
 }
-$("fileInput").addEventListener("change", (e) => choose(e.target.files[0]));
-$("changeBtn").addEventListener("click", () => { $("fileInput").value = ""; $("fileInput").click(); });
-const drop = $("drop");
-drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag"); });
-drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
-drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag"); choose(e.dataTransfer.files[0]); });
-document.addEventListener("dragover", (e) => e.preventDefault());   // Dropping anywhere on the page
-document.addEventListener("drop", (e) => { e.preventDefault(); if (!running) choose(e.dataTransfer.files[0]); });
+function splitRow(line) { return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim()); }
+function listBlock(lines, i, isList, isBlockStart) {   // A list; more-indented items become a sub-list
+  const indent = (l) => l.match(/^\s*/)[0].length;
+  const base = indent(lines[i]), tag = /^\s*\d/.test(lines[i]) ? "ol" : "ul";
+  let out = "";
+  while (i < lines.length) {
+    const l = lines[i], ind = indent(l);
+    if (!l.trim()) { if (isList(lines[i + 1] || "") && indent(lines[i + 1]) >= base) { i++; continue; } break; }
+    if (isList(l) && ind === base) { out += (out ? "</li>" : "") + "<li>" + inline(esc(l.replace(/^\s*([-*+]|\d+[.)])\s+/, ""))); i++; }
+    else if (isList(l) && ind > base && out) { const r = listBlock(lines, i, isList, isBlockStart); out += r.html; i = r.i; }
+    else if (ind > base && out && !isBlockStart(l.trimStart())) { out += " " + inline(esc(l.trim())); i++; }
+    else break;
+  }
+  return { html: `<${tag}>${out}</li></${tag}>`, i };
+}
+function md(src) {       // Turns the AI's Markdown answer into HTML
+  const lines = src.replace(/\r/g, "").split("\n");
+  let html = "", i = 0;
+  const isList = (l) => /^\s*([-*+]|\d+[.)])\s+/.test(l);
+  const isBlockStart = (l) => /^```|^#{1,6}\s|^>\s?|^(-{3,}|\*{3,})\s*$/.test(l) || isList(l);
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) { const buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); i++; html += "<pre><code>" + esc(buf.join("\n")) + "</code></pre>"; continue; }
+    if (!line.trim()) { i++; continue; }
+    let m = line.match(/^(#{1,6})\s+(.*)/);
+    if (m) { const lvl = Math.min(m[1].length + 2, 6); html += `<h${lvl}>${inline(esc(m[2]))}</h${lvl}>`; i++; continue; }
+    if (/^(-{3,}|\*{3,})\s*$/.test(line)) { html += "<hr>"; i++; continue; }
+    if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || "")) {
+      const head = splitRow(line); i += 2;
+      let t = "<table><thead><tr>" + head.map((c) => "<th>" + inline(esc(c)) + "</th>").join("") + "</tr></thead><tbody>";
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) t += "<tr>" + splitRow(lines[i++]).map((c) => "<td>" + inline(esc(c)) + "</td>").join("") + "</tr>";
+      html += t + "</tbody></table>"; continue;
+    }
+    if (isList(line)) { const r = listBlock(lines, i, isList, isBlockStart); html += r.html; i = r.i; continue; }
+    if (/^>\s?/.test(line)) { const buf = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, "")); html += "<blockquote>" + inline(esc(buf.join(" "))) + "</blockquote>"; continue; }
+    const buf = [];
+    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i]) && !/^\s*\|.*\|\s*$/.test(lines[i])) buf.push(lines[i++]);
+    if (!buf.length) buf.push(lines[i++]);
+    html += "<p>" + buf.map((l) => inline(esc(l))).join("<br>") + "</p>";
+  }
+  return html;
+}
 
-// ---------- Progress display ----------
-function setStage(stage) {
-  const order = ["describe", "judge", "verify"];
-  document.querySelectorAll(".step").forEach((el) => {
-    const i = order.indexOf(el.dataset.step), cur = order.indexOf(stage);
-    el.classList.toggle("done", stage === "done" || i < cur);
-    el.classList.toggle("active", i === cur);
-    el.querySelector(".icon").innerHTML = (stage === "done" || i < cur) ? "✓" : i === cur ? '<span class="spinner"></span>' : String(i + 1);
-  });
-  if (STEP_TEXT[stage]) $("statusText").textContent = STEP_TEXT[stage];
+// ---------- Scrolling ----------
+// "Follow mode": while you're at the bottom, the chat stays pinned to the newest content however much it grows.
+// Scroll up to read and it stops following; scroll back down (or click ↓) and it follows again.
+let follow = true, lastTop = 0;
+const distance = () => messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;   // Pixels below what you can see
+const atBottom = () => distance() < 60;
+const toBottom = () => { messagesEl.scrollTop = messagesEl.scrollHeight; };
+const scrollDown = (force) => { if (force) follow = true; if (follow) toBottom(); updateJump(); };
+const updateJump = () => { $("jumpBtn").hidden = atBottom(); };
+const resume = () => { follow = true; toBottom(); updateJump(); };   // Snap to the newest content and keep following
+messagesEl.addEventListener("scroll", () => {   // Any scrolling (wheel, scrollbar, keyboard, touch)
+  const top = messagesEl.scrollTop;
+  if (top < lastTop - 2) follow = false;        // Moved up: stop following so you can read
+  else if (atBottom()) follow = true;           // Reached the bottom (e.g. dragged the scrollbar down): follow again
+  lastTop = messagesEl.scrollTop;
+  updateJump();
+});
+messagesEl.addEventListener("wheel", (e) => {   // Mouse wheel / touchpad
+  if (e.deltaY < 0) follow = false;             // Scrolling up
+  else if (e.deltaY > 0 && distance() - e.deltaY < messagesEl.clientHeight) resume();   // Scrolling down within a screen of the end: catch up, even while text keeps arriving
+}, { passive: true });
+document.addEventListener("keydown", (e) => {   // End / Ctrl+End jump to the newest message (when not typing in the box)
+  if (e.key === "End" && (e.ctrlKey || document.activeElement !== input)) resume();
+});
+new ResizeObserver(() => { if (follow) toBottom(); updateJump(); }).observe(thread);   // Content grew (new text, a result card, an opened panel)
+$("jumpBtn").addEventListener("click", () => { follow = true; messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: "smooth" }); });
+
+// ---------- Attaching an image ----------
+function attach(f) {
+  if (!f || controller) return;
+  if (!/\.(jpe?g|png)$/i.test(f.name) && !/^image\/(jpeg|png)$/.test(f.type)) { alert("Please attach a JPG or PNG image."); return; }
+  if (!/\.(jpe?g|png)$/i.test(f.name)) f = new File([f], "pasted-image." + (f.type === "image/png" ? "png" : "jpg"), { type: f.type });   // Pasted images have no file name
+  attached = f;
+  $("attachImg").src = URL.createObjectURL(f);
+  $("attachName").textContent = `${f.name} · ${fmtSize(f.size)}`;
+  $("attachment").style.display = "flex";
+  input.placeholder = "Add a note (optional)…";
+  updateButton(); input.focus();
 }
-function resetWork() {
-  $("intro").hidden = true; $("work").hidden = false;
-  $("result").innerHTML = ""; $("descText").textContent = ""; $("thinkText").textContent = "";
-  $("searchList").innerHTML = ""; $("searchCount").textContent = "";
-  $("searchPanel").hidden = true; $("thinkPanel").hidden = true;
-  $("descPanel").open = true;
-  setStage("");
-  const start = Date.now();
-  $("timer").textContent = "0:00";
-  clearInterval(timerId);
-  timerId = setInterval(() => { $("timer").textContent = fmtTime(Math.round((Date.now() - start) / 1000)); }, 1000);
+function clearAttachment() {
+  attached = null; $("fileInput").value = "";
+  $("attachment").style.display = "none";
+  input.placeholder = "Message ASC Assistant…";
+  updateButton();
 }
-function addSearch(query, passages) {
-  $("searchPanel").hidden = false;
-  const el = document.createElement("details");
-  el.className = "search";
-  el.innerHTML = `<summary><b>“${esc(query)}”</b></summary><pre class="pre muted" style="margin-top:6px"></pre>`;
-  el.querySelector("pre").textContent = passages;
-  $("searchList").appendChild(el);
-  $("searchCount").textContent = $("searchList").children.length;
+$("attachBtn").addEventListener("click", () => $("fileInput").click());
+$("starterAttach").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", (e) => attach(e.target.files[0]));
+$("removeAttach").addEventListener("click", clearAttachment);
+let dragDepth = 0;   // Drag an image anywhere onto the page
+window.addEventListener("dragenter", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { dragDepth++; $("dropOverlay").classList.add("show"); } });
+window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("dropOverlay").classList.remove("show"); } });
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => { e.preventDefault(); dragDepth = 0; $("dropOverlay").classList.remove("show"); attach(e.dataTransfer.files[0]); });
+input.addEventListener("paste", (e) => {   // Paste a screenshot with Ctrl+V
+  const item = [...(e.clipboardData?.items || [])].find((i) => /^image\/(png|jpeg)$/.test(i.type));
+  if (item) { e.preventDefault(); attach(item.getAsFile()); }
+});
+
+// ---------- Message box ----------
+function autosize() { input.style.height = "auto"; if (input.value) input.style.height = Math.min(input.scrollHeight, 200) + "px"; }
+function updateButton() {
+  if (controller) { sendBtn.innerHTML = ICON_STOP; sendBtn.disabled = false; sendBtn.setAttribute("aria-label", "Stop"); }
+  else { sendBtn.innerHTML = ICON_SEND; sendBtn.disabled = !input.value.trim() && !attached; sendBtn.setAttribute("aria-label", "Send"); }
+}
+input.addEventListener("input", () => { autosize(); updateButton(); });
+input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!controller) send(); } });
+$("composer").addEventListener("submit", (e) => { e.preventDefault(); if (controller) controller.abort(); else send(); });
+document.querySelectorAll(".starter[data-q]").forEach((b) => b.addEventListener("click", () => { input.value = b.dataset.q; send(); }));
+$("newChat").addEventListener("click", () => { if (!controller || confirm("Stop the current answer and start a new chat?")) location.reload(); });
+
+// ---------- Adding messages ----------
+function addUser(text, file) {
+  $("empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg user";
+  if (file) { const img = document.createElement("img"); img.src = URL.createObjectURL(file); img.alt = file.name; el.appendChild(img); }
+  if (text) { const b = document.createElement("div"); b.className = "bubble"; b.textContent = text; el.appendChild(b); }
+  thread.appendChild(el);
+}
+function addAssistant(inner) {
+  const el = document.createElement("div");
+  el.className = "msg ai";
+  el.innerHTML = `<div class="body">${inner}</div>`;
+  thread.appendChild(el);
+  return el.querySelector(".body");
 }
 
-// ---------- Running the check ----------
-$("checkBtn").addEventListener("click", runCheck);
-async function runCheck() {
-  if (!file || running) return;
-  running = true;
-  $("checkBtn").disabled = true; $("changeBtn").disabled = true;
-  resetWork();
+// ---------- Sending ----------
+async function send() {
+  const text = input.value.trim(), file = attached;
+  if (!text && !file) return;
+  input.value = ""; autosize(); clearAttachment();
+  addUser(text, file);
+  scrollDown(true);
   const form = new FormData();
-  form.append("image", file);
-  let result = null;
+  form.append("message", text);
+  form.append("history", JSON.stringify(history));
+  if (file) form.append("image", file);
+  controller = new AbortController();
+  updateButton();
+  const ui = file ? checkUI(file, text) : chatUI();
   try {
-    const res = await fetch("/api/check", { method: "POST", body: form });
+    const res = await fetch("/api/chat", { method: "POST", body: form, signal: controller.signal });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Server error " + res.status);
     const reader = res.body.getReader(), decoder = new TextDecoder();
     let buffer = "";
-    while (true) {                         // Read the progress as it streams in
+    while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -342,89 +451,165 @@ async function runCheck() {
       for (const line of lines) {
         if (!line.trim()) continue;
         const ev = JSON.parse(line);
-        if (ev.type === "queued") $("statusText").textContent = "Waiting for another check to finish…";
-        else if (ev.type === "stage") { setStage(ev.value); if (ev.value !== "describe") $("descPanel").open = false; }
-        else if (ev.type === "describe") { const p = $("descText"); p.textContent += ev.text; p.scrollTop = p.scrollHeight; }
-        else if (ev.type === "thinking") { $("thinkPanel").hidden = false; const p = $("thinkText"); p.textContent += ev.text; p.scrollTop = p.scrollHeight; }
-        else if (ev.type === "search") addSearch(ev.query, ev.result);
-        else if (ev.type === "result") result = ev;
-        else if (ev.type === "error") throw new Error(ev.message);
+        if (ev.type === "error") throw new Error(ev.message);
+        ui.event(ev);
       }
     }
-    if (!result) throw new Error("The check ended without a result.");
-    setStage("done");
-    $("statusText").textContent = `Finished in ${fmtTime(result.seconds ?? 0)}`;
-    showResult(result);
+    ui.finish();
   } catch (err) {
-    setStage("");
-    $("statusText").textContent = "Stopped";
-    $("result").innerHTML = '<div class="error-box"></div>';
-    $("result").firstChild.textContent = "The check could not run: " + err.message;
+    ui.fail(err.name === "AbortError" ? null : err.message);
   }
-  clearInterval(timerId);
-  running = false;
-  $("checkBtn").disabled = false; $("changeBtn").disabled = false;
+  controller = null;
+  updateButton();
+  scrollDown();
+  refreshStatus();
 }
 
-// ---------- Showing the result ----------
-function showResult(r) {
+// Shared pieces for thinking and guideline searches
+function extras(body) {
+  const box = document.createElement("div");
+  box.className = "extras";
+  box.innerHTML = `<details class="panel" hidden data-k="search"><summary>Sources <span class="count"></span></summary><div class="panel-body"></div></details>
+    <details class="panel" hidden data-k="think"><summary>Thinking</summary><div class="panel-body"><pre class="pre muted"></pre></div></details>`;
+  body.appendChild(box);
+  const search = box.querySelector('[data-k="search"]'), think = box.querySelector('[data-k="think"]');
+  return {
+    search(query, result) {
+      search.hidden = false;
+      const d = document.createElement("details");
+      d.className = "search";
+      d.innerHTML = `<summary>“${esc(query)}”</summary><pre class="pre muted" style="margin-top:6px"></pre>`;
+      d.querySelector("pre").textContent = result;
+      search.querySelector(".panel-body").appendChild(d);
+      search.querySelector(".count").textContent = search.querySelector(".panel-body").children.length;
+    },
+    think(text) { think.hidden = false; const p = think.querySelector("pre"); p.textContent += text; p.scrollTop = p.scrollHeight; },
+  };
+}
+
+// ---------- A chat answer (no image) ----------
+function chatUI() {
+  const body = addAssistant(`<div class="activity" hidden><span class="spinner"></span><span></span></div><div class="content md"><div class="typing"><i></i><i></i><i></i></div></div>`);
+  const activity = body.querySelector(".activity"), content = body.querySelector(".content");
+  const more = extras(body);
+  let answer = "", warning = "", frame = 0;
+  const setActivity = (t) => { activity.hidden = !t; activity.lastChild.textContent = t || ""; };
+  const render = () => { if (frame) return; frame = requestAnimationFrame(() => { frame = 0; content.innerHTML = md(answer); scrollDown(); }); };
+  return {
+    event(ev) {
+      if (ev.type === "queued") setActivity("Waiting for the current check to finish…");
+      else if (ev.type === "thinking") { more.think(ev.text); if (!answer) setActivity("Thinking…"); }
+      else if (ev.type === "search") { more.search(ev.query, ev.result); setActivity(`Searching the ASC Guidebook: “${ev.query}”`); }
+      else if (ev.type === "token") { answer += ev.text; setActivity(""); render(); }
+      else if (ev.type === "warning") warning = ev.text;
+    },
+    finish() {
+      cancelAnimationFrame(frame); setActivity("");
+      content.innerHTML = answer ? md(answer) : '<p style="color:var(--muted)">No answer.</p>';
+      if (warning) { const n = document.createElement("div"); n.className = "note"; n.textContent = "⚠ " + warning; content.after(n); }
+      if (answer) history.push({ role: "user", content: lastUserText() }, { role: "assistant", content: answer });
+    },
+    fail(message) {
+      cancelAnimationFrame(frame); setActivity("");
+      if (message) content.innerHTML = `<div class="error-box">${esc("Something went wrong: " + message)}</div>`;
+      else content.innerHTML = (answer ? md(answer) : "") + '<p style="color:var(--muted)"><em>Stopped.</em></p>';
+      if (answer) history.push({ role: "user", content: lastUserText() }, { role: "assistant", content: answer });
+    },
+  };
+}
+function lastUserText() { const b = [...thread.querySelectorAll(".msg.user")].pop(); return b?.querySelector(".bubble")?.textContent || ""; }
+
+// ---------- An ad check (with image) ----------
+function checkUI(file, note) {
+  const id = ++msgCount;
+  const body = addAssistant(`<div class="activity"><span class="spinner"></span><span>Reading the image…</span><span class="timer"></span></div>
+    <div class="result"></div>
+    <details class="panel" data-k="desc" hidden><summary>What the AI saw in the image</summary><div class="panel-body"><pre class="pre"></pre></div></details>`);
+  const result = body.querySelector(".result"), activity = body.querySelector(".activity"), timerEl = activity.querySelector(".timer");
+  const desc = body.querySelector('[data-k="desc"]');
+  const more = extras(body);
+  const TEXT = { describe: "Reading the image…", judge: "Checking the ASC rules…", verify: "Double-checking the findings…" };
+  const start = Date.now(), timer = setInterval(() => { timerEl.textContent = fmtTime(Math.round((Date.now() - start) / 1000)); }, 1000);
+  const say = (t) => { activity.children[1].textContent = t; };
+  let final = null;
+  const end = () => { clearInterval(timer); activity.remove(); };
+  return {
+    event(ev) {
+      if (ev.type === "queued") say("Waiting for the previous message to finish…");
+      else if (ev.type === "stage" && TEXT[ev.value]) say(TEXT[ev.value]);
+      else if (ev.type === "describe") { desc.hidden = false; const p = desc.querySelector("pre"); p.textContent += ev.text; p.scrollTop = p.scrollHeight; }
+      else if (ev.type === "thinking") more.think(ev.text);
+      else if (ev.type === "search") { more.search(ev.query, ev.result); say(`Checking the ASC rules… (looking up “${ev.query}”)`); }
+      else if (ev.type === "result") final = ev;
+    },
+    finish() {
+      end();
+      if (!final) { result.innerHTML = '<div class="error-box">The check ended without a result.</div>'; return; }
+      result.innerHTML = renderResult(final, id);
+      result.querySelector(".pdf")?.addEventListener("click", (e) => downloadReport(e.currentTarget, final, file, id));
+      history.push({ role: "user", content: (note ? note + "\n" : "") + `[Attached an ad image to check: ${file.name}]` },
+                   { role: "assistant", content: summarize(final, file.name) });
+    },
+    fail(message) {
+      end();
+      result.innerHTML = `<div class="error-box">${esc(message ? "The check could not run: " + message : "Check stopped.")}</div>`;
+    },
+  };
+}
+
+// The result card of a check
+function renderResult(r, id) {
   const reasons = r.reasons || [];
   let html = "";
   if (r.result === "NON-COMPLIANT") {
     html += `<div class="verdict bad"><div class="v">✕ Non-compliant</div><p>${reasons.length} issue${reasons.length === 1 ? "" : "s"} must be fixed before this ad can run.</p></div>`;
     html += reasons.map((x, i) => {
       const info = x.info || {};
-      const added = x.added_by_code;      // The AI missed it; the decency check found it in the description
-      return `<div class="issue"><span class="n">${i + 1}</span><div class="body">
-        <h3>${esc(x.problem)}${added ? '<span class="tag" title="The AI missed this; the decency check found it in the image description.">Added by decency check</span>' : ""}</h3>
+      return `<div class="issue"><span class="n">${i + 1}</span><div class="ib">
+        <h3>${esc(x.problem)}${x.added_by_code ? '<span class="tag" title="The AI missed this; the decency check found it in the image description.">Added by decency check</span>' : ""}</h3>
         ${info.title || info.summary ? `<div class="lbl">What the ASC rule says</div><div class="rule"><b>${esc(info.id ? info.id + " · " : "")}${esc(info.title)}</b>${esc(info.summary)}${info.why ? `<div class="why"><b style="display:inline">Why it applies:</b> ${esc(info.why)}</div>` : ""}</div>` : ""}
         <div class="lbl">Evidence from the ad</div><div class="evidence">${esc(x.evidence)}</div>
         <div class="lbl">How to fix</div><div class="fix">${esc(x.suggestion)}</div>
-        <div class="ref">ASC reference: ${esc(x.rule)}</div>
-      </div></div>`;
+        <div class="ref">ASC reference: ${esc(x.rule)}</div></div></div>`;
     }).join("");
   } else if (r.result === "COMPLIANT") {
     html += `<div class="verdict good"><div class="v">✓ Compliant</div><p>${esc(r.approval_summary || "No ASC violations were found.")}</p></div>`;
-    if ((r.checks_passed || []).length) {
-      html += `<div class="passed">` + r.checks_passed.map((c) =>
-        `<div><span class="tick">✓</span><div><b>${esc(c.check)}</b><div>${esc(c.finding)}</div>${c.guideline ? `<small>ASC guideline: ${esc(c.guideline)}</small>` : ""}</div></div>`).join("") + `</div>`;
-    }
+    if ((r.checks_passed || []).length) html += `<div class="passed">` + r.checks_passed.map((c) =>
+      `<div><span class="tick">✓</span><div><b>${esc(c.check)}</b><div>${esc(c.finding)}</div>${c.guideline ? `<small>ASC guideline: ${esc(c.guideline)}</small>` : ""}</div></div>`).join("") + `</div>`;
   } else {
-    html += `<div class="verdict warn"><div class="v">! Could not check</div><p>${esc(String(r.message || "Please submit the image again.").split("\n")[0])}</p></div>`;
-    if (String(r.message || "").includes("\n")) html += `<details class="panel"><summary>Details</summary><div class="panel-body"><pre class="pre">${esc(r.message)}</pre></div></details>`;
+    html += `<div class="verdict warn"><div class="v">! Could not check</div><p>${esc(String(r.message || "Please send the image again.").split("\n")[0])}</p></div>`;
   }
-  if ((r.removed_reasons || []).length) {
-    html += `<details class="panel"><summary>Removed by verification <span class="count">${r.removed_reasons.length}</span></summary><div class="panel-body">
-      <p style="margin:0 0 6px;font-size:13.5px">The AI raised these, but they weren't backed by the image, so they were removed:</p>
-      <ul class="removed">${r.removed_reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></details>`;
-  }
-  if (r.result !== "ERROR") {
-    html += `<div class="review"><b>Human review required.</b><p>This is an AI pre-screen, not an ASC decision. Compare the image with the findings, then record your decision.</p>
-      <div class="decision">${["Approve", "Revise", "Reject"].map((d) => `<label><input type="radio" name="decision" value="${d}">${d}</label>`).join("")}</div>
-      <textarea id="notes" placeholder="Reviewer notes (optional)"></textarea>
-      <div class="actions"><button class="btn primary" id="pdfBtn" style="flex:0 1 auto">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-        Download PDF report</button></div></div>`;
-  }
-  $("result").innerHTML = html;
-  lastResult = r;
-  $("pdfBtn")?.addEventListener("click", downloadReport);
+  if ((r.removed_reasons || []).length) html += `<details class="panel"><summary>Removed by verification <span class="count">${r.removed_reasons.length}</span></summary><div class="panel-body">
+    <p style="margin:0 0 6px;font-size:13px">The AI raised these, but they weren't backed by the image, so they were removed:</p>
+    <ul class="removed">${r.removed_reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></details>`;
+  if (r.result !== "ERROR") html += `<div class="review"><b>Human review required.</b><p>This is an AI pre-screen, not an ASC decision. Compare the image with the findings, then record your decision.</p>
+    <div class="decision">${["Approve", "Revise", "Reject"].map((d) => `<label><input type="radio" name="decision-${id}" value="${d}">${d}</label>`).join("")}</div>
+    <textarea class="notes" placeholder="Reviewer notes (optional)"></textarea>
+    <div class="row"><button class="btn primary pdf">${ICON_DOWNLOAD} Download PDF report</button></div></div>`;
+  return html;
+}
+
+// What the AI remembers about a check, for follow-up questions
+function summarize(r, name) {
+  let s = `ASC CHECK RESULT for ${name}: ${r.result}.`;
+  if (r.result === "NON-COMPLIANT") s += "\n" + (r.reasons || []).map((x, i) => `${i + 1}. ${x.problem} Rule: ${x.rule}. Evidence: ${x.evidence}. Fix: ${x.suggestion}`).join("\n");
+  else if (r.result === "COMPLIANT") s += " " + (r.approval_summary || "") + "\n" + (r.checks_passed || []).map((c) => `- ${c.check}: ${c.finding}`).join("\n");
+  else s += " " + String(r.message || "").split("\n")[0];
+  if (r.description) s += "\n\nWhat the AI saw in the image:\n" + r.description.slice(0, 1500);
+  return s;
 }
 
 // ---------- PDF report ----------
-let lastResult = null;   // The result shown on the page
-async function downloadReport() {
-  if (!lastResult || !file) return;
-  const btn = $("pdfBtn"), label = btn.innerHTML;
+async function downloadReport(btn, result, file, id) {
+  const card = btn.closest(".review"), label = btn.innerHTML;
   btn.disabled = true; btn.textContent = "Making PDF…";
   try {
     const form = new FormData();
     form.append("image", file);   // The server doesn't keep images, so send it again
     form.append("data", JSON.stringify({
-      result: lastResult,
-      decision: document.querySelector('input[name="decision"]:checked')?.value || "",
-      notes: $("notes")?.value || "",
-      file_name: file.name,
+      result, file_name: file.name,
+      decision: card.querySelector(`input[name="decision-${id}"]:checked`)?.value || "",
+      notes: card.querySelector(".notes")?.value || "",
     }));
     const res = await fetch("/api/report", { method: "POST", body: form });
     if (!res.ok) throw new Error("Server error " + res.status);
@@ -439,17 +624,10 @@ async function downloadReport() {
   btn.disabled = false; btn.innerHTML = label;
 }
 
-// ---------- Status chips ----------
+// ---------- Setup check (only shown when something needs fixing) ----------
 async function refreshStatus() {
   try {
     const s = await fetch("/api/status").then((r) => r.json());
-    $("visionName").textContent = s.vision_model; $("judgeName").textContent = s.judge_model;
-    const chip = (cls, text, title = "") => `<span class="chip ${cls}" title="${esc(title)}"><span class="dot"></span>${esc(text)}</span>`;
-    let chips = chip(s.ollama ? "ok" : "bad", s.ollama ? "Ollama ready" : "Ollama not running");
-    chips += chip(s.qdrant && s.passages ? "ok" : "bad", s.qdrant ? `Guidelines: ${s.passages} passages` : "Guidelines not reachable", `Qdrant collection "${s.collection}"`);
-    if (s.device) chips += chip(s.device === "GPU" ? "ok" : "warn", `Running on ${s.device}`);
-    if (s.ollama && !s.judge_tools) chips += chip("warn", "Judge can't search", `${s.judge_model} doesn't support tools, so it can't search the guidelines. It still uses its built-in rule checklist.`);
-    $("chips").innerHTML = chips;
     const problems = [];
     if (!s.ollama) problems.push("Start <b>Ollama</b> from the Start menu.");
     if (s.ollama && s.missing_models.length) problems.push("Download the missing model(s): " + s.missing_models.map((m) => `<code>ollama pull ${esc(m)}</code>`).join(" "));
@@ -458,11 +636,13 @@ async function refreshStatus() {
     $("setup").style.display = problems.length ? "block" : "none";
     $("setup").innerHTML = "<b>Setup needed:</b> " + problems.join(" ");
   } catch {
-    $("chips").innerHTML = '<span class="chip bad"><span class="dot"></span>Server not reachable</span>';
+    $("setup").style.display = "block";
+    $("setup").innerHTML = "<b>Can't reach the server.</b> Start it with <code>uv run server.py</code>, then reload this page.";
   }
 }
 refreshStatus();
-setInterval(() => { if (!running) refreshStatus(); }, 15000);
+setInterval(() => { if (!controller) refreshStatus(); }, 15000);
+input.focus();
 </script>
 </body>
 </html>

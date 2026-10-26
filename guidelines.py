@@ -3,7 +3,8 @@ from langchain_ollama import OllamaEmbeddings  # Turns text into vectors using a
 from langchain_qdrant import QdrantVectorStore  # LangChain wrapper around a Qdrant collection
 from qdrant_client import QdrantClient  # Low-level client that talks to the Qdrant server
 
-from config import COLLECTION, EMBEDDING_MODEL, OLLAMA_URL, QDRANT_API_KEY, QDRANT_URL, TOP_K  # Settings
+from config import COLLECTION, EMBEDDING_MODEL, QDRANT_API_KEY, QDRANT_URL, TOP_K  # Settings
+from embed_server import embedding_url  # Where search embeddings run
 
 _store = None  # The opened collection, created on first use
 
@@ -13,7 +14,7 @@ def make_client():  # Connection to the Qdrant server (the same one n8n uses)
 
 
 def make_embeddings():  # The model that turns text into vectors
-    return OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_URL)  # Plain nomic-embed-text, exactly as n8n stored the passages
+    return OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=embedding_url(), keep_alive=-1)  # Plain nomic-embed-text, exactly as n8n stored the passages; on the processor-only Ollama copy so it never unloads the judge
 
 
 def get_store():  # Opens the asc_guidelines collection on the Qdrant server (once). The collection must already exist
