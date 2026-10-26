@@ -1,14 +1,18 @@
-# Local Assistant
+# ASC Ad Pre-screen
 
-A private AI chat assistant that answers questions about **your own documents**:
-PDFs, Excel spreadsheets, CSV files and text files. Everything runs **on your own computer**.
-No internet connection, account or API key is needed once it's set up, and your documents
-never leave the machine.
+A private AI tool that checks **advertising images** (billboards and other out-of-home ads) against
+the **Ad Standards Council (ASC) Philippines** guidelines, before they go to official ASC screening.
 
-You can use it in two ways:
+You upload an ad image. The tool tells you whether it looks **compliant** or **non-compliant**.
+For every problem it shows the ASC rule, the evidence from the ad and how to fix it.
 
-- **In your web browser**: a chat page with document upload (`server.py`)
-- **In a terminal window**: a simple text chat (`main.py`)
+Everything runs **on your own computer**: no internet, account or API key is needed once it's set up,
+and images never leave the machine.
+
+> **This is a pre-screen, not an ASC decision.** A person must always review the result.
+
+This is the Python version of the n8n workflow **"ASC v3"**. It does the same steps with the same
+prompts, the same rule summaries and the same Qdrant guidelines (see [How it maps to n8n](#how-it-maps-to-the-n8n-workflow)).
 
 ---
 
@@ -22,24 +26,37 @@ You can use it in two ways:
 6. [How it works inside](#6-how-it-works-inside)
 7. [The files in this project](#7-the-files-in-this-project)
 8. [Settings](#8-settings)
-9. [Using other AI models](#9-using-other-ai-models)
-10. [Common developer tasks](#10-common-developer-tasks)
-11. [Troubleshooting](#11-troubleshooting)
-12. [Known limits](#12-known-limits)
-13. [Web API reference](#13-web-api-reference)
+9. [Changing prompts, rules and models](#9-changing-prompts-rules-and-models)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Known limits](#11-known-limits)
+12. [Web API reference](#12-web-api-reference)
 
 ---
 
 ## 1. What it does (in plain words)
 
-1. You put files in the `documents` folder, or drag them into the web page.
-2. The program reads them, cuts them into small pieces and saves those pieces in a
-   **searchable database** on your computer.
-3. When you ask a question, it finds the pieces that best match your question and gives them
-   to an **AI model** running on your computer, which writes the answer.
-4. For spreadsheets it can do more: the AI can **filter, count and group every row**, so
-   questions like *"How many billboards were vacant in January?"* get exact answers.
-5. Every answer shows **which file (and page, sheet or row)** the information came from.
+```
+  ┌───────────┐   1. DESCRIBE    ┌──────────────┐   2. CHECK RULES    ┌──────────────┐   3. VERIFY    ┌──────────┐
+  │ Ad image  │ ───────────────▶ │ Written      │ ──────────────────▶ │ AI verdict   │ ─────────────▶ │  Result  │
+  │ (JPG/PNG) │  minicpm-v:8b    │ description  │  gpt-oss:20b reads  │ (JSON)       │  Python code   │  page    │
+  └───────────┘  looks at the    │ of the ad    │  the ASC rules and  └──────────────┘  removes made- └──────────┘
+                 image           └──────────────┘  searches the ASC                    up problems,
+                                                   Guidebook in Qdrant                 adds missed
+                                                                                       decency issues
+```
+
+1. **Describe:** a vision model (**minicpm-v:8b**) looks at the image and writes down everything it sees:
+   all text, the product, claims, warnings and fine print, people, and other visuals.
+2. **Check the rules:** a reasoning model (**gpt-oss:20b**) compares that description with the ASC rule
+   checklist. Along the way it searches the **ASC Guidebook** (stored in Qdrant as `asc_guidelines`)
+   for the exact rule wording.
+3. **Verify:** Python code double-checks the AI's answer:
+   - It **removes** "violations" the AI made up, such as rules for the wrong product type, a
+     "missing" warning that is actually there, or evidence that isn't in the ad.
+   - It **adds** decency problems the AI missed, such as revealing clothing or intimate poses.
+   - It attaches a **plain-language explanation** of every ASC rule.
+4. **Result:** you see the image next to the verdict and findings. You record your own decision
+   (Approve / Revise / Reject) and download a **PDF report**.
 
 ---
 
@@ -47,18 +64,19 @@ You can use it in two ways:
 
 | Word | What it means |
 |---|---|
-| **AI model / LLM** | The "brain" that reads text and writes answers. This project uses **gpt-oss:20b**. |
-| **Ollama** | A free program that runs AI models on your computer. Our code talks to it. |
-| **Embedding** | A list of numbers that represents the *meaning* of a piece of text. Texts with similar meaning get similar numbers. Made by the model **nomic-embed-text**. |
-| **Vector database** | A database that stores embeddings and can quickly find "the texts closest in meaning to this question". This project uses **Qdrant**. |
-| **Chunk** | One small piece of a document: one spreadsheet row, or about 1,200 characters of a PDF or text file. |
-| **Ingest** | Reading your files, cutting them into chunks and saving them in the database. |
-| **RAG** (Retrieval-Augmented Generation) | "Search first, then answer": find the relevant chunks, then let the AI answer using them. This is what the project does. |
-| **Tool** | A function the AI is allowed to call. Here: `query_table`, which filters and counts spreadsheet rows. |
-| **LangChain** | A Python library that connects the pieces (AI model, database, prompts, tools). |
-| **Terminal** | A window where you type commands. On Windows, use **PowerShell**: press Start, type `PowerShell` and press Enter. |
+| **ASC** | Ad Standards Council, the body that screens ads in the Philippines. Its rules are in the ASC Guidebook (Code of Ethics and Manual of Procedures). |
+| **OOH** | Out-of-home advertising: billboards, posters, transit ads. Seen by everyone, so the decency rules are strict. |
+| **AI model** | The "brain" that reads and writes. This tool uses two: a **vision model** that can see images, and a **judge model** that reasons about rules. |
+| **Ollama** | A free program that runs AI models on your computer. |
+| **Qdrant** | A database that finds text **by meaning**. It holds the ASC Guidebook, cut into ~1,000-character passages. |
+| **Embedding** | A list of numbers representing the meaning of a text. Searching compares these numbers. Made by **nomic-embed-text**. |
+| **Collection** | One "table" in Qdrant. Ours is called `asc_guidelines`. |
+| **Tool** | A function the AI is allowed to call. Here: `asc_guidelines`, which searches the guidebook. |
+| **Prompt** | The written instructions given to an AI model. Ours are in the `prompts` folder. |
+| **Docker** | A program that runs other programs in "containers". Qdrant (and n8n) run in Docker. |
+| **Terminal** | A window where you type commands. On Windows use **PowerShell**: press Start, type `PowerShell`, press Enter. |
 | **uv** | A tool that installs Python and this project's libraries, and runs the project. |
-| **`.env` file** | A small text file with settings (which model to use, and so on). Optional. |
+| **n8n** | A visual workflow tool. The first version of this checker was an n8n workflow. |
 
 ---
 
@@ -68,164 +86,138 @@ You can use it in two ways:
 
 | | Minimum | Recommended |
 |---|---|---|
-| Operating system | Windows 10/11 (also works on macOS and Linux) | Windows 11 |
+| Operating system | Windows 10/11 | Windows 11 |
 | Memory (RAM) | 16 GB | 32 GB |
-| Graphics card | Not required (but slow without one) | NVIDIA with **16 GB** of memory or more |
-| Free disk space | 20 GB | 30 GB |
+| Graphics card | NVIDIA with 8 GB (slow) | NVIDIA with **16 GB** or more |
+| Free disk space | 30 GB | 40 GB |
 
-> **About the graphics card (GPU):** the AI runs **much faster** on an NVIDIA graphics card.
-> Without one, it uses the processor (CPU), which works but is slow. If you have an NVIDIA card,
-> its **driver must be version 531 or newer** (see [Troubleshooting](#the-ai-runs-on-cpu-instead-of-gpu)).
+> The graphics card matters a lot. Without one, a check can take 10 minutes or more. The NVIDIA
+> driver must be **version 531 or newer** (see [Troubleshooting](#the-check-is-very-slow)).
 
-**Programs** (installation steps are below)
+**Programs** (installed in the steps below)
 
 - **Ollama**: runs the AI models
-- **uv**: installs Python and the project's libraries
+- **Docker Desktop**: runs the Qdrant database (skip if you already run n8n with Qdrant)
+- **uv**: installs Python and this project's libraries
 
-An internet connection is only needed **during installation**, to download the programs and models.
+The internet is only needed **during installation**.
 
 ---
 
 ## 4. Installation, step by step
 
-Do these steps **once** per computer. Every command goes into **PowerShell**. Type it (or paste it
-with right-click), then press **Enter**.
+Do this **once** per computer. Every command goes into **PowerShell**: type or paste it
+(right-click pastes), then press **Enter**.
 
 ### Step 1: Install Ollama
 
-1. Go to **https://ollama.com/download** and download the Windows version.
-2. Run the installer and click through it.
-3. Ollama now runs in the background. You'll see a small llama icon near the clock, bottom right.
-4. Check that it works. Open PowerShell and run:
+1. Download it from **https://ollama.com/download** and run the installer.
+2. A llama icon appears near the clock (bottom right), which means Ollama is running.
+3. Check it:
 
    ```powershell
    ollama --version
    ```
 
-   You should see something like `ollama version is 0.40.4`.
+### Step 2: Download the three AI models
 
-### Step 2: Download the two AI models
+```powershell
+ollama pull minicpm-v:8b
+```
 
-These are large downloads, so it may take a while.
+The vision model that describes the image (about **5.5 GB**).
 
 ```powershell
 ollama pull gpt-oss:20b
 ```
 
-This is the chat model (about **13 GB**).
+The judge model that checks the ASC rules (about **13 GB**).
 
 ```powershell
 ollama pull nomic-embed-text
 ```
 
-This is the embedding model (about **270 MB**).
+The search model for the guidebook (about **270 MB**).
 
-Check that both are there:
+Check that all three are listed:
 
 ```powershell
 ollama list
 ```
 
-You should see both `gpt-oss:20b` and `nomic-embed-text` in the list.
+### Step 3: Start the Qdrant database
 
-### Step 3: Install uv
+> **Already using the n8n workflow?** Then Qdrant is already running with the guidelines loaded.
+> Skip to Step 4.
 
-Run this in PowerShell:
+1. Install **Docker Desktop** from **https://www.docker.com/products/docker-desktop** and start it.
+2. Start Qdrant (this keeps its data in a Docker volume called `qdrant_storage`):
+
+   ```powershell
+   docker run -d --name qdrant --restart unless-stopped -p 6333:6333 -v qdrant_storage:/qdrant/storage qdrant/qdrant
+   ```
+
+3. Check it: open **http://localhost:6333/dashboard** in a browser. You should see the Qdrant dashboard.
+
+### Step 4: Install uv
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Then **close PowerShell and open it again**, so it picks up the new program. Check it:
+**Close PowerShell and open it again**, then check:
 
 ```powershell
 uv --version
 ```
 
-> You do **not** need to install Python yourself. uv downloads the right version (3.11) automatically.
+> You don't need to install Python yourself. uv downloads the right version automatically.
 
-### Step 4: Get the project folder
+### Step 5: Get the project and install its libraries
 
-Copy the project folder (the one containing this `README.md`) to the computer, for example to
-`C:\Users\<you>\Documents\Langchain`.
+1. Copy the project folder (the one with this `README.md`) to the computer.
+2. Open PowerShell **in that folder**. Tip: in File Explorer, open the folder, click the address
+   bar, type `powershell` and press Enter.
+3. Install the libraries:
 
-Then open PowerShell **inside that folder**:
-
-```powershell
-cd "C:\Users\<you>\Documents\Langchain"
-```
-
-> **Tip:** in File Explorer, open the folder, click the address bar, type `powershell` and press
-> Enter. A PowerShell window opens already in that folder.
+   ```powershell
+   uv sync
+   ```
 
 **Every command from here on must be run inside the project folder.**
 
-### Step 5: Install the project's libraries
+### Step 6: Load the ASC Guidebook into Qdrant
+
+> **Skip this if the guidelines are already loaded** (for example by n8n). The web page's header
+> shows **"Guidelines: 438 passages"** when they are.
+
+You need the ASC Guidebook as a PDF with real text (not a scan). Then:
 
 ```powershell
-uv sync
+uv run ingest_guidelines.py "C:\path\to\ASC Guidebook.pdf"
 ```
 
-This creates a hidden `.venv` folder containing Python and all the libraries listed in
-`pyproject.toml`, at the exact versions recorded in `uv.lock`. It takes a minute or two the first time.
+You'll see progress up to 100%. It takes a few minutes.
 
-### Step 6 (optional): Create your settings file
-
-The project works **without** a settings file. You only need one to change something, such as using
-a different model or running Ollama on another computer.
-
-```powershell
-copy .env.example .env
-```
-
-Then open `.env` in Notepad and edit it. Every setting is explained in [Settings](#8-settings).
-
-### Step 7: Add your documents
-
-Put your files in the **`documents`** folder inside the project. Create the folder if it doesn't exist.
-
-Supported file types:
-
-| Type | Extension | Notes |
-|---|---|---|
-| PDF | `.pdf` | Must contain real text. Scanned images of pages can't be read. |
-| Excel | `.xlsx` | Every sheet is read. The **first row must be the column titles**. Old `.xls` files: open them in Excel and save as `.xlsx`. |
-| CSV | `.csv` | First row must be the column titles. |
-| Text | `.txt`, `.md` | |
-
-Subfolders are fine.
-
-### Step 8: Load the documents into the database
-
-```powershell
-uv run ingest.py
-```
-
-You'll see progress like this:
-
-```
-Adding documents\sites.xlsx: 1408 chunks
-  32/1408 (2%)
-  64/1408 (4%)
-  ...
-Done. 1408 chunks added; the database now holds 1408 chunks.
-```
-
-> **Let it finish.** Large files can take several minutes, especially without a graphics card.
-> If it's interrupted, just run it again. Finished files are skipped, and unfinished ones are redone.
-
-### Step 9: Start the web interface
+### Step 7: Start the app
 
 ```powershell
 uv run server.py
 ```
 
-When you see `Open http://127.0.0.1:8000 in your browser`, open that address in any browser.
+When you see `Open http://127.0.0.1:8000 in your browser`, open that address.
 
-**Leave this PowerShell window open** while you use the app. To stop it, click the window and press
-**Ctrl + C**.
+**Leave this window open** while you use the app. Press **Ctrl + C** in it to stop.
 
-That's it. Ask a question to try it out.
+### Step 8 (optional): Change settings
+
+Everything works with the defaults. To change something (a model, a port…):
+
+```powershell
+copy .env.example .env
+```
+
+Then edit `.env` in Notepad and restart the app. All settings are explained in [Settings](#8-settings).
 
 ---
 
@@ -233,150 +225,116 @@ That's it. Ask a question to try it out.
 
 ### Starting the app
 
-1. Make sure Ollama is running (llama icon near the clock). If not, start **Ollama** from the Start menu.
-2. Open PowerShell in the project folder.
-3. Run `uv run server.py` and open **http://127.0.0.1:8000**.
+1. Make sure **Ollama** (llama icon near the clock) and **Docker Desktop** are running.
+2. Open PowerShell in the project folder and run `uv run server.py`.
+3. Open **http://127.0.0.1:8000**.
 
-### The web page
+The header shows what's ready:
 
-```
-┌───────────────────────┬──────────────────────────────────────────┐
-│ Local Assistant       │                                          │
-│ [+ New chat]          │   Your question                [bubble]  │
-│                       │                                          │
-│ KNOWLEDGE BASE    (2) │   ▸ Thought process   (click to open)    │
-│ ┌───────────────────┐ │   ▦ Checked sites.xlsx · Type ...        │
-│ │  Add documents    │ │   The answer, with tables and lists...   │
-│ └───────────────────┘ │   [sites.xlsx, sheet Sheet1]  ← sources  │
-│ XLSX sites.xlsx       │                                          │
-│ PDF  report.pdf       │                                          │
-│                       │                                          │
-│ ● Ollama connected    │                                          │
-│ Running on      GPU   │                                          │
-│ Spreadsheet tool  On  │ ┌──────────────────────────────────────┐ │
-│ Indexed chunks 1,408  │ │ Message Local Assistant…          [↑]│ │
-└───────────────────────┴─┴──────────────────────────────────────┴─┘
-```
-
-| Part | What it does |
+| Chip | Meaning |
 |---|---|
-| **New chat** | Clears the conversation and starts fresh. |
-| **Add documents** | Click, or drag files onto it. They're saved to the `documents` folder and added to the database automatically. |
-| **Trash icon** (hover over a file) | Deletes the file from the folder **and** from the database. |
-| **Thought process** | The AI's reasoning before it answered. Click to expand. |
-| **Checked …** | Shows when the AI queried a spreadsheet, and how many rows matched. |
-| **Source tags** | Which files the answer used. |
-| **Status panel** | Whether Ollama is reachable, which models are used, whether the AI runs on **GPU** (fast) or **CPU** (slow, shown in orange), whether the **spreadsheet tool** is on (it depends on the model, see [section 9](#9-using-other-ai-models)), and how many chunks are stored. |
-| **Stop button** (■) | Appears while an answer is being written. Click it to cancel. |
+| **Ollama ready** | The AI models can run |
+| **Guidelines: 438 passages** | Qdrant is reachable and the ASC Guidebook is loaded |
+| **Running on GPU** | The models use the graphics card (fast). Orange **CPU** means slow |
 
-Keyboard: **Enter** sends, **Shift + Enter** starts a new line.
+If something is missing, a yellow **"Setup needed"** bar says exactly what to do.
 
-### Good questions to ask
+### Checking an ad
 
-| Kind of question | Example |
-|---|---|
-| Look up one thing | *What is the status of site NAN0105?* |
-| Categories | *What types of sites are there, and how many of each?* |
-| Filter and list | *List the billboards that were VACANT on 2025-01-24 in Pasay.* |
-| Count | *How many sites does Metro Devco operate?* |
-| Follow-up | *Which of those are in Malibay?* (it remembers the conversation) |
-| Text documents | *Summarize the main points of report.pdf.* |
+1. **Drop the ad image** onto the left panel, or click it to choose a file (JPG or PNG).
+2. Click **Check this ad**.
+3. Watch the three steps: **Describe → Check rules → Verify**. A check takes **about 3 minutes**
+   on a 16 GB graphics card. Meanwhile you can open:
+   - **What the AI sees in the image**: the description, written live
+   - **Guideline searches**: what the AI looked up in the ASC Guidebook, and what it found
+   - **Thought process**: the judge's reasoning
+4. **Read the result:**
 
-### Adding documents without the web page
+   | Result | What you see |
+   |---|---|
+   | **✕ Non-compliant** | One card per problem: the problem, **what the ASC rule says** (blue box), **evidence** from the ad, **how to fix** it, and the ASC reference. Problems tagged *"Added by decency check"* were missed by the AI but found by the code. |
+   | **✓ Compliant** | Why it passed, plus every check that was made (mandatory statements, claims, visuals, decency) |
+   | **! Could not check** | The reason, e.g. the AI's answer wasn't readable. Just run it again. |
 
-1. Copy the files into the `documents` folder.
-2. **Stop the server** (Ctrl + C), because only one program can use the database at a time.
-3. Run `uv run ingest.py`.
-4. Start the server again with `uv run server.py`.
+   **Removed by verification** (if shown) lists problems the AI raised that weren't backed by the
+   image, for transparency.
+5. **Review it yourself.** Compare the image with the findings, choose **Approve / Revise / Reject**,
+   and add notes.
+6. Click **Download PDF report** to keep a record. The PDF (A4) contains:
+   - the ad image, the verdict and every finding, with the rule explanation, evidence and fix
+   - your decision (ticked box) and notes, plus *Reviewed by* and *Date* lines to sign
+   - an appendix with what the AI saw in the image, so anyone can see what the findings were based on
 
-`ingest.py` keeps the database in sync with the folder:
+   It's saved to your Downloads folder as e.g. `ASC-prescreen-golden-lager-2026-10-23.pdf`.
 
-| You did this | `ingest.py` does this |
-|---|---|
-| Added a new file | Adds it |
-| Changed a file | Replaces its old chunks with new ones |
-| Didn't touch a file | Skips it (fast) |
-| Deleted a file | Removes its chunks from the database |
+> The decision and notes are **not saved** by the app. Download the PDF to keep them. Choose
+> the decision and write the notes **before** clicking the button.
+>
+> Ctrl + P also prints the page (always in light colors), but the PDF report is the cleaner record.
 
-### Terminal chat (no browser)
+### Checking from the terminal (no browser)
 
 ```powershell
-uv run main.py
+uv run check.py "C:\path\to\ad.png"
 ```
 
-Type a question and press Enter. Type `exit` to quit. Close the web server first, because the
-two can't run at the same time.
+This prints the description, the searches and the result, which is handy for testing. Stop the
+web server first if both would run at the same time; they share the graphics card.
 
 ---
 
 ## 6. How it works inside
 
-### The big picture
+### Step by step
 
-```
-                  ADDING DOCUMENTS (ingest.py, or upload in the web page)
-  ┌────────────┐   read & cut    ┌─────────┐   make embeddings  ┌──────────────┐
-  │ documents/ │ ──────────────▶ │ chunks  │ ─────────────────▶ │   Qdrant     │
-  │ pdf, xlsx… │   (ingest.py)   │         │ (nomic-embed-text) │ qdrant_data/ │
-  └────────────┘                 └─────────┘                    └──────┬───────┘
-                                                                       │
-                  ASKING A QUESTION (server.py or main.py)             │ search
-  ┌──────────┐   question   ┌───────────────────────────────────┐      │
-  │   You    │ ───────────▶ │ 1. search(): best-matching chunks │◀─────┘
-  └──────────┘              │ 2. overview of every spreadsheet  │
-       ▲                    │ 3. prompt = rules + overview      │
-       │                    │      + chunks + chat history      │
-       │                    └──────────────┬────────────────────┘
-       │                                   ▼
-       │                    ┌───────────────────────────────────┐   query_table()
-       │   streamed answer  │  gpt-oss:20b (running in Ollama)  │ ◀──────────────▶ every row of
-       └─────────────────── │  may call the spreadsheet tool    │                  the spreadsheets
-                            └───────────────────────────────────┘
-```
+**Step 1: describe** (`vision.py`)
+- Sends the image to **minicpm-v:8b** through Ollama, with two prompts:
+  - `prompts/describe_system.md`: "describe only, in English, don't judge", taken from the n8n node.
+  - `prompts/describe.md`: the 7 sections to fill in (ALL TEXT, PRODUCT, CLAIMS, WARNINGS AND FINE
+    PRINT, PEOPLE, OTHER VISUALS, UNREADABLE). It insists on copying only text that is really in the image.
+- The description is streamed to the page as it's written.
 
-### What happens when you ask a question
+**Step 2: check the rules** (`judge.py`)
+- Sends `prompts/judge.md` (the n8n AI Agent prompt, about 8,000 tokens) with the description
+  filled in, to **gpt-oss:20b**.
+- The prompt holds the full **ASC rule checklist** (G general, C claims, P price/promo, R category
+  rules, plus the decency checklist D1–D6). It tells the AI to call the **`asc_guidelines`** tool 2 to
+  5 times to confirm rule wording.
+- Each search returns the **3 closest passages** from Qdrant (`guidelines.py`). Repeated searches are
+  refused, and passages already shown aren't sent again, to keep the AI's memory from overflowing.
+- The AI answers with **JSON**: the verdict, and either the violations (rule, evidence, problem, fix,
+  rule explanation) or the checks that passed.
 
-1. **Search** (`db.search`) finds the chunks that best match your question in two ways:
-   - **Exact codes:** words that mix letters and digits (like `NAN0105`) are looked up word for
-     word, and those rows come first.
-   - **Meaning:** the question is turned into an embedding, and Qdrant returns the closest chunks.
-   - The top 8 (`TOP_K`) are kept.
-2. **Spreadsheet overview** (`tables.overview`) summarizes every spreadsheet: each column, and its
-   most common values with counts. This lets the AI know what columns and categories exist.
-3. **Prompt** (`rag.prompt`) combines the instructions, the overview, the chunks and the last few
-   messages of the conversation.
-4. **The AI answers** (`rag.answer_stream`). If the question needs many rows ("how many", "list
-   all"), the AI calls the **`query_table`** tool instead of guessing. The tool filters, counts
-   and groups the **full** spreadsheet and gives the result back to the AI. This can happen up to
-   4 times per question.
-5. The answer is **streamed** (sent word by word) to the browser or terminal, along with the
-   sources and any spreadsheet checks.
+**Step 3: verify** (`checks.py`, the Python version of the n8n "Code in JavaScript" node)
+1. **Finds the product category** in the description from keywords (beer → `R-ALC`, supplement → `R-SUPP`, …).
+2. **Removes made-up violations:**
+   - a category rule for a product type the ad doesn't show (e.g. milk rules on a beer ad)
+   - "MISSING: …" when the statement **is** in the description
+   - evidence whose words aren't in the description (needs 60% word overlap)
+3. **Adds decency problems the AI missed**, by scanning the description for intimate contact
+   (kissing, embracing, hands on hips…) and revealing clothing (bikini, shirtless, lingerie…). Under
+   ASC Article I Section 4 and Annex 3, borderline decency counts as non-compliant for OOH.
+4. **Attaches rule explanations** from `prompts/rules.json`: the plain-language summary of all 54
+   ASC rule IDs (G-01…G-14, C-01…C-17, P-01…P-07, R-…). These are used first because they're always
+   accurate; the AI's own summary is the fallback.
+5. **Handles language problems:** if the vision model answered in Chinese (it sometimes does), the
+   judge's English translation (`description_en`) is used. If there is none, the result is
+   "Could not check" rather than an unchecked verdict.
 
-### How files are cut into chunks
+### How it maps to the n8n workflow
 
-| File type | How it's cut | Why |
-|---|---|---|
-| Excel / CSV | **One chunk per row.** Each chunk starts with `File: … \| Sheet: … \| Row N`, followed by `Column: value` pairs. | A row is never cut in half, and every chunk makes sense on its own. |
-| PDF | One document per page, then cut into pieces of about 1,200 characters, overlapping by 200. | Keeps the page number for sources. The overlap stops sentences from being lost at the cut. |
-| Text / Markdown | Pieces of about 1,200 characters, overlapping by 200. | |
+| n8n node | Python |
+|---|---|
+| Upload Image (form) | `static/index.html` + `server.py` (`/api/check`) |
+| Extract from File | Not needed: the browser shows the image itself |
+| Analyze image (minicpm-v:8b) | `vision.py` |
+| AI Agent + Ollama Chat Model (gpt-oss:20b, think) | `judge.py` |
+| asc_guidelines (Qdrant, retrieve-as-tool, top 3) + Embeddings Ollama1 | `guidelines.py` |
+| Code in JavaScript | `checks.py` + `prompts/rules.json` |
+| Form (completion page) | The result panel in `static/index.html`, plus a downloadable PDF report (`report.py`) |
+| On form submission (PDF) → Default Data Loader → Text Splitter → Qdrant Vector Store | `ingest_guidelines.py` |
 
-Spreadsheet clean-up done while reading:
-
-- **Dates:** `2024-03-01 00:00:00` becomes `2024-03-01`.
-- **Duplicate column names** get the column on their left added, e.g. `Status (2024-03-01)`.
-- **Blank column titles** become `Column Q` (using the column letter).
-- **Merged cells:** the value is copied into every cell of the merged area.
-- **Empty rows and columns** are skipped.
-- **Category counts** treat different spellings as one: `Streamer`, `streamer` and `STREAMER` are
-  counted together.
-
-### How the database stays correct
-
-- Every chunk is labeled with its file name and a **fingerprint** (`file_hash`) of the file's contents.
-- `ingest.py` compares fingerprints. If a file's stored chunks match its current fingerprint and
-  count, the file is skipped. Otherwise its old chunks are deleted and it's added again.
-- If you change *how* files are read (the code in `ingest.py`), increase `PIPELINE_VERSION` at the
-  top of `ingest.py`. Every file is then re-added automatically on the next run.
+Both versions use **the same Qdrant collection**, so n8n and this app can run side by side.
 
 ---
 
@@ -384,410 +342,213 @@ Spreadsheet clean-up done while reading:
 
 ```
 Langchain/
-├── documents/        ← YOUR FILES go here
-├── qdrant_data/      ← the database (created automatically, do not edit)
+├── server.py              ← the web server: serves the page, runs checks, reports status
+├── check.py               ← check one image from the terminal
+├── pipeline.py            ← runs the three steps in order and reports progress
+├── vision.py              ← step 1: describe the image (minicpm-v)
+├── judge.py               ← step 2: check the rules (gpt-oss), with guideline searches
+├── guidelines.py          ← search the asc_guidelines collection in Qdrant
+├── checks.py              ← step 3: verify the AI's answer (port of the n8n code node)
+├── report.py              ← makes the PDF report
+├── ingest_guidelines.py   ← add a guideline PDF to Qdrant
+├── config.py              ← all settings, read from .env
+├── prompts/
+│   ├── describe_system.md ← vision model: who it is (describe only, English only)
+│   ├── describe.md        ← vision model: the 7 sections to write
+│   ├── judge.md           ← judge model: the full ASC checklist and output format
+│   └── rules.json         ← plain-language summary of every ASC rule ID
 ├── static/
-│   └── index.html    ← the web page (HTML, CSS and JavaScript in one file)
-├── server.py         ← the web server: serves the page and handles chat, upload and delete
-├── main.py           ← the terminal chat
-├── ingest.py         ← reads files, cuts them into chunks, stores them in the database
-├── db.py             ← database helpers: open Qdrant, search, delete, count
-├── rag.py            ← the AI part: model settings, prompt, answering loop
-├── tables.py         ← spreadsheet overview and the query_table tool
-├── .env.example      ← example settings (copy to .env to use)
-├── pyproject.toml    ← list of required libraries
-├── uv.lock           ← exact library versions (managed by uv, don't edit)
-└── .python-version   ← Python version (3.11)
+│   └── index.html         ← the web page (HTML, CSS and JavaScript in one file)
+├── archive/document-chat/ ← the previous version of this project (document Q&A), kept for reference
+├── .env.example           ← example settings (copy to .env)
+├── pyproject.toml         ← required libraries
+└── uv.lock                ← exact library versions (managed by uv, don't edit)
 ```
 
-Every Python file has a comment on each line explaining what it does. Read them in this order:
-
-1. **`db.py`**: how the database is opened and searched
-2. **`ingest.py`**: how files become chunks
-3. **`tables.py`**: how spreadsheets are summarized and queried
-4. **`rag.py`**: how the prompt is built and the AI answers
-5. **`server.py`**: how the web page talks to all of the above
-6. **`static/index.html`**: the page itself
+Every Python file has a comment on each line explaining what it does. To learn the code, read in
+this order: `config.py` → `vision.py` → `guidelines.py` → `judge.py` → `checks.py` → `pipeline.py` → `server.py`.
 
 ### Who uses what
 
 ```
-server.py ─┬─▶ rag.py ─┬─▶ tables.py ─▶ ingest.py ─▶ db.py
-main.py  ──┘           └─▶ db.py
-ingest.py (run on its own) ─▶ db.py
+server.py ──▶ report.py (PDF report)
+server.py ─┐
+check.py ──┴─▶ pipeline.py ─┬─▶ vision.py
+                            ├─▶ judge.py ──▶ guidelines.py ──▶ Qdrant (asc_guidelines)
+                            └─▶ checks.py ──▶ prompts/rules.json
+ingest_guidelines.py ──▶ guidelines.py ──▶ Qdrant
 ```
-
-### Main libraries
-
-| Library | Used for |
-|---|---|
-| `langchain` / `langchain-core` | Prompts, messages, tools |
-| `langchain-ollama` | Talking to Ollama (chat and embeddings) |
-| `langchain-qdrant`, `qdrant-client` | The vector database |
-| `langchain-text-splitters` | Cutting long text into chunks |
-| `openpyxl` | Reading Excel files |
-| `pypdf` | Reading PDF files |
-| `fastapi`, `uvicorn`, `python-multipart` | The web server and file uploads |
-| `python-dotenv` | Reading the `.env` settings file |
 
 ---
 
 ## 8. Settings
 
-All settings are optional. To change one, copy `.env.example` to `.env`, edit the value and restart the app.
+All settings are optional. Copy `.env.example` to `.env`, edit it, and restart the app.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `OLLAMA_MODEL` | `gpt-oss:20b` | The chat model. Must be downloaded with `ollama pull`. See [Using other AI models](#9-using-other-ai-models). |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Where Ollama runs. Change it to use another computer's Ollama (see [below](#use-an-ai-model-on-another-computer)). |
-| `OLLAMA_NUM_CTX` | `16384` | How much text (in tokens) the AI can read at once. Ollama's own default (4096) is too small and silently cuts off documents. |
-| `TOP_K` | `8` | How many chunks are given to the AI per question. |
-| `EMBEDDING_MODEL` | `nomic-embed-text` | The model that makes embeddings. **If you change it, delete `qdrant_data` and run `ingest.py` again.** |
-| `QDRANT_COLLECTION` | `documents` | Name of the table inside the database. |
-| `QDRANT_PATH` | `qdrant_data` | Folder where the database is stored. |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Where Ollama runs. Use another computer's address to run the models there. |
+| `VISION_MODEL` | `minicpm-v:8b` | Step 1 model (must be able to see images). |
+| `JUDGE_MODEL` | `gpt-oss:20b` | Step 2 model. Should support **tools**, so it can search the guidelines. |
+| `JUDGE_NUM_CTX` | `16384` | How much text the judge can hold. Its instructions are ~8,000 tokens and a full check peaks around 11,000–13,000. Larger values don't fit a 16 GB card and make checks **much** slower. |
+| `VISION_NUM_CTX` | `8192` | How much text the vision model can hold. |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Search model. **Must be the model the guidelines were stored with.** |
+| `QDRANT_URL` | `http://localhost:6333` | The Qdrant server. |
+| `QDRANT_API_KEY` | (empty) | Only if your Qdrant server needs a key. |
+| `QDRANT_COLLECTION` | `asc_guidelines` | The collection with the guidebook. |
+| `TOP_K` | `3` | Passages returned per guideline search (n8n used 3). |
+| `MAX_SEARCHES` | `5` | Most guideline searches per image. |
 | `PORT` | `8000` | Web page address: `http://127.0.0.1:<PORT>`. |
-| `QDRANT_URL` / `QDRANT_API_KEY` | (empty) | Use a separate Qdrant server instead of the folder (see [below](#run-the-web-page-and-the-terminal-chat-at-the-same-time)). |
+| `MAX_IMAGE_MB` | `20` | Largest image accepted. |
 
 ---
 
-## 9. Using other AI models
+## 9. Changing prompts, rules and models
 
-The project uses **two** models, and each can be swapped:
+### Change what the AI is told
 
-| Model | Job | Default | Setting |
-|---|---|---|---|
-| **Chat model** | Reads your question and the documents, and writes the answer | `gpt-oss:20b` | `OLLAMA_MODEL` |
-| **Embedding model** | Turns text into numbers so the database can search by meaning | `nomic-embed-text` | `EMBEDDING_MODEL` |
+The instructions are plain text files in `prompts/`. Edit them in any editor and restart the app.
 
-### 9.1 Switch to another Ollama chat model (no code changes)
+| File | Change it to… |
+|---|---|
+| `describe.md` | ask the vision model to describe something more or differently |
+| `judge.md` | change the ASC checklist, strictness or output format. It **must** keep the `{description}` placeholder, and the JSON output format that `checks.py` reads (`verdict`, `reasons`, `checks_passed`, …). |
+| `rules.json` | change the plain-language rule summaries shown in the results |
 
-Any chat model from **https://ollama.com/library** works.
+> If you edit the prompts in n8n too, copy the changes here (or the other way round). The two
+> versions don't sync automatically.
 
-1. **Download the model** (replace the name with the one you want):
+### Use different models
 
-   ```powershell
-   ollama pull qwen3:14b
-   ```
+1. Download the model, e.g. `ollama pull llama3.2-vision:11b`.
+2. Check what it can do with `ollama show <model>`:
+   - **Vision model:** must list `vision`.
+   - **Judge model:** should list `tools`, so it can search the guidelines. Without tools the
+     header shows **"Judge can't search"**, and it relies only on the checklist in the prompt.
+     `thinking` is optional.
+3. Set `VISION_MODEL=` or `JUDGE_MODEL=` in `.env` and restart.
 
-2. **Check what it can do:**
+Sizes to keep in mind on a 16 GB card: the vision and judge models run **one after the other**,
+so each must fit on its own. They don't need to fit together.
 
-   ```powershell
-   ollama show qwen3:14b
-   ```
+### Change the search model
 
-   Look at the **Capabilities** section:
+The guidelines were stored with `nomic-embed-text`. To use another embedding model, you must
+**reload the guidebook** with it: delete the `asc_guidelines` collection in the Qdrant dashboard
+(http://localhost:6333/dashboard), set `EMBEDDING_MODEL=` in `.env`, and run `ingest_guidelines.py`
+again. **Note:** n8n's Embeddings nodes would then need the same model.
 
-   | Capability | What it means here | If the model doesn't have it |
-   |---|---|---|
-   | `completion` | It can chat | It can't be used as the chat model at all |
-   | `tools` | It can use the **spreadsheet tool**, giving exact counts and lists over every row | Spreadsheet answers come only from the column summary and a few matching rows, so counts and lists may be incomplete |
-   | `thinking` | It reasons before answering, shown as **Thought process** in the chat | No Thought process section, otherwise works the same |
+### Add more guideline documents
 
-3. **Tell the project to use it.** Create a `.env` file if you don't have one
-   (`copy .env.example .env`), open it in Notepad and change:
-
-   ```
-   OLLAMA_MODEL=qwen3:14b
-   ```
-
-4. **Restart the app.** Stop it with Ctrl + C, then `uv run server.py`.
-
-5. **Check the sidebar:** **Chat model** shows the new name, and **Spreadsheet tool** shows
-   **On** (supports tools) or **Off** in orange (no tool support).
-
-You **don't** need to run `ingest.py` again, because the database doesn't depend on the chat model.
-
-> **The code adapts automatically.** When the app starts, `rag.model_capabilities()` asks Ollama
-> what the model supports. It only turns on "thinking" and the spreadsheet tool if the model has
-> them. Without this check, models without those features would fail with errors like
-> `does not support thinking`.
-
-#### Which model should I pick?
-
-The whole model should fit in your graphics card's memory (VRAM), with a little room to spare.
-If it doesn't fit, it still works, but slowly, because part of it runs on the processor.
-
-| Your GPU memory | Models to try | Notes |
-|---|---|---|
-| No GPU / under 8 GB | `qwen3:4b`, `llama3.2:3b` | Small and fast, less accurate |
-| 8 GB | `qwen3:8b`, `llama3.1:8b` | Good everyday choice; both support tools |
-| 12 GB | `qwen3:14b` | Supports tools and thinking |
-| 16 GB or more | `gpt-oss:20b` (default) | Supports tools and thinking |
-| 24 GB or more | `qwen3:32b` | More accurate; slower |
-
-Model names and sizes change over time, so always confirm with `ollama show <model>` (step 2).
-For spreadsheet work, **choose a model with `tools`**.
-
-> **Context size:** `OLLAMA_NUM_CTX` (default 16384) must not be larger than the model supports.
-> `ollama show` lists it as **context length**. Most current models support 32768 or more.
-
-### 9.2 Switch the embedding model
-
-The embedding model decides how well the search finds relevant passages.
-
-| Model | Size | Good for |
-|---|---|---|
-| `nomic-embed-text` (default) | 270 MB | English documents; fast |
-| `mxbai-embed-large` | 670 MB | English; often slightly more accurate |
-| `bge-m3` | 1.2 GB | **Multiple languages**, e.g. documents mixing English and Filipino |
-
-Steps:
-
-1. Download it, for example `ollama pull bge-m3`.
-2. Set `EMBEDDING_MODEL=bge-m3` in `.env`.
-3. Stop the app and **delete the `qdrant_data` folder**. This step is required: vectors from
-   different embedding models can't be mixed, and the database would reject the new ones.
-4. Run `uv run ingest.py` to rebuild the database.
-5. Start the app again.
-
-> `db.py` adds the special prefixes `search_document:` and `search_query:` only for `nomic`
-> models, because those models were trained to expect them. Other models get plain text.
-
-### 9.3 Use a model on another computer
-
-See [Use an AI model on another computer](#use-an-ai-model-on-another-computer) below. It works
-with any Ollama model.
-
-### 9.4 Use a non-Ollama model (LM Studio, OpenAI, Claude, Gemini…)
-
-This needs a **small code change** in `rag.py`, because the project talks to Ollama by default.
-
-> **Privacy warning:** cloud models (OpenAI, Anthropic Claude, Google Gemini) send your questions
-> **and the matching parts of your documents** to that company's servers, and they need a paid
-> API key. Local servers like LM Studio, llama.cpp and vLLM keep everything on your computer.
-
-**Example: any OpenAI-compatible server** (LM Studio, llama.cpp server, vLLM, or OpenAI itself)
-
-1. Install the connector:
-
-   ```powershell
-   uv add langchain-openai
-   ```
-
-2. In `rag.py`, replace the body of `get_llm()` and make `model_capabilities()` report tool support:
-
-   ```python
-   def model_capabilities():  # This server isn't Ollama, so state what the model supports
-       return {"completion", "tools"}  # Remove "tools" if the model can't call tools
-
-   def get_llm():  # Creates the chat model client
-       from langchain_openai import ChatOpenAI  # Connector for OpenAI-style servers
-       return ChatOpenAI(
-           model=os.getenv("OPENAI_MODEL"),  # e.g. the model name shown in LM Studio
-           base_url=os.getenv("OPENAI_BASE_URL"),  # LM Studio: http://localhost:1234/v1 ; OpenAI: leave empty
-           api_key=os.getenv("OPENAI_API_KEY", "not-needed"),  # Local servers usually don't check it
-       )
-   ```
-
-3. Add the settings to `.env`:
-
-   ```
-   OPENAI_MODEL=<model name>
-   OPENAI_BASE_URL=http://localhost:1234/v1
-   OPENAI_API_KEY=<your key, only for cloud services>
-   ```
-
-**Example: Anthropic Claude.** Same idea, with `uv add langchain-anthropic`:
-
-```python
-def get_llm():
-    from langchain_anthropic import ChatAnthropic
-    return ChatAnthropic(model="claude-sonnet-5-5", max_tokens=4096)  # Reads ANTHROPIC_API_KEY from .env
+```powershell
+uv run ingest_guidelines.py "C:\path\to\another-guideline.pdf"
 ```
 
-Notes for non-Ollama models:
-
-- The embedding model can stay on Ollama. Only the chat model changes.
-- The sidebar's **Running on** line only works for Ollama models, so it will show `Idle`.
-- **Never commit `.env`** (it holds your API key). It's already listed in `.gitignore`.
+To replace a file you added before (after an update, for example), add `--replace` at the end.
 
 ---
 
-## 10. Common developer tasks
+## 10. Troubleshooting
 
-### Use a different AI model
+### The yellow bar says "Setup needed"
 
-See [Using other AI models](#9-using-other-ai-models).
+It names the problem. The common ones:
 
-### Change the AI's instructions
+| Message | Fix |
+|---|---|
+| Start **Ollama** | Start Ollama from the Start menu |
+| Download the missing model(s) | Run the `ollama pull …` command shown |
+| Start the **Qdrant** server | Open Docker Desktop and start the `qdrant` container (▶ button) |
+| The collection is empty | Load the guidebook ([Step 6](#step-6-load-the-asc-guidebook-into-qdrant)) |
 
-Edit the `prompt` text in `rag.py`.
+### The check is very slow
 
-### Support a new file type
+A normal check takes about 3 minutes on a 16 GB NVIDIA card.
 
-1. Add the extension to `EXTENSIONS` in `ingest.py`.
-2. Add a branch in `load_file()` that returns a list of `Document(page_content=..., metadata={"source": str(path)})`.
-3. Add the extension to the `accept="..."` list of the file input in `static/index.html`.
-4. Increase `PIPELINE_VERSION` in `ingest.py`, then run `uv run ingest.py`.
+1. Look at the header: **Running on CPU** (orange) means the graphics card isn't used. Run
+   `nvidia-smi`; if the **Driver Version** is below 531, update the driver from
+   **nvidia.com/drivers**, then restart the computer.
+2. Run `ollama ps` during a check. If **PROCESSOR** shows a big CPU share (e.g. `30%/70% CPU/GPU`),
+   the model doesn't fit in the card's memory:
+   - Close other programs that use the graphics card (browsers with many tabs, games, 3D software).
+   - Don't raise `JUDGE_NUM_CTX` above 16384.
+3. Part of every check is loading the models: the vision model and the judge take turns on the
+   graphics card, because both don't fit at once.
 
-### Start the database over from scratch
+### "Could not check: The AI did not return valid JSON"
 
-1. Stop the server.
-2. Delete the `qdrant_data` folder.
-3. Run `uv run ingest.py`.
+The judge's answer was cut off or badly formatted. Run the check again. If it keeps happening,
+open **Thought process**. If the reasoning stops mid-sentence, the AI ran out of memory: lower
+`MAX_SEARCHES` to 3.
 
-### Use an AI model on another computer
+### "The image description came back in another language"
 
-On the computer **with** the model:
+minicpm-v sometimes answers in Chinese. Run the check again. If it keeps happening, try
+`VISION_MODEL=llama3.2-vision:11b`.
 
-1. Set a Windows environment variable `OLLAMA_HOST` = `0.0.0.0`, then restart Ollama.
-2. Allow port 11434 through its firewall. In PowerShell **as administrator**:
+### The result is clearly wrong
 
-   ```powershell
-   New-NetFirewallRule -DisplayName "Ollama" -Direction Inbound -Protocol TCP -LocalPort 11434 -Action Allow
-   ```
-
-3. Find its IP address with `ipconfig`, for example `192.168.1.50`.
-
-On **this** computer, set `OLLAMA_BASE_URL=http://192.168.1.50:11434` in `.env`.
-
-> Only do this on a network you trust: anyone on it can use that model.
-
-### Run the web page and the terminal chat at the same time
-
-By default the database is a folder that only **one program** can open at a time. To share it,
-run Qdrant as a server with Docker:
-
-```powershell
-docker run -d -p 6333:6333 -v qdrant_storage:/qdrant/storage qdrant/qdrant
-```
-
-Then set `QDRANT_URL=http://localhost:6333` in `.env` and run `uv run ingest.py` once to fill it.
-
-### Add or update a library
-
-```powershell
-uv add <library-name>
-```
-
-This updates `pyproject.toml` and `uv.lock` for you. Don't edit `uv.lock` by hand.
-
----
-
-## 11. Troubleshooting
-
-### "The database folder 'qdrant_data' is already in use by another program"
-
-Only one of `server.py`, `main.py` and `ingest.py` can run at a time. Close the other one: type
-`exit` in the terminal chat, or press **Ctrl + C** in the window running the server or ingest.
-
-If you can't find that window, this lists the running copies:
-
-```powershell
-Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Select-Object ProcessId, CommandLine
-```
-
-Stop one by its number with `Stop-Process -Id <number>`.
-
-### The status says "Ollama not running", or answers fail with a connection error
-
-Start **Ollama** from the Start menu and wait a few seconds. Check it with `ollama list`.
-
-### "model not found"
-
-Download the missing model with `ollama pull gpt-oss:20b` or `ollama pull nomic-embed-text`.
-
-### The AI runs on CPU instead of GPU
-
-The sidebar shows **Running on: CPU** in orange, and answers are slow.
-
-1. Check your NVIDIA driver version:
-
-   ```powershell
-   nvidia-smi
-   ```
-
-2. If the **Driver Version** is lower than **531**, update it:
-   1. Go to **nvidia.com/drivers** and pick your card. For Quadro / RTX cards, choose the "RTX / Quadro" series.
-   2. Download the newest driver and choose **Express** install.
-   3. Restart the computer.
-3. Ask a question, then run `ollama ps`. The **PROCESSOR** column should say `GPU`.
-
-> Older cards (Pascal generation, e.g. Quadro P5200 or GTX 10xx) are supported up to the
-> **R580 / 580.x** drivers.
-
-### The sidebar says "Spreadsheet tool: Off"
-
-The chat model you chose can't use tools, so spreadsheet counts and lists may be incomplete.
-Switch to a model whose `ollama show <model>` output lists `tools` (see [section 9.1](#91-switch-to-another-ollama-chat-model-no-code-changes)).
-It also shows **Off** if Ollama wasn't running when the app started: start Ollama, then restart the app.
-
-### After changing the embedding model, adding documents fails
-
-Vectors from different embedding models can't be mixed. Stop the app, delete the `qdrant_data`
-folder and run `uv run ingest.py` again.
-
-### `ingest.py` seems stuck
-
-Watch the progress percentage. Without a GPU, about 1,400 spreadsheet rows can take 10 minutes or
-more. If it was interrupted, run it again: it continues with the unfinished files.
-
-### A PDF gives no answers
-
-It's probably a scanned PDF (pictures of pages, with no real text). `ingest.py` prints
-`Skipped (no text found)` for those. Run it through a text-recognition (OCR) tool first.
-
-### Spreadsheet answers use the wrong column names
-
-The first row of each sheet must contain the column titles. If your sheet has a title or logo above
-the header row, delete those rows in Excel.
+1. Open **What the AI sees in the image**. Most mistakes start here: the vision model misread
+   small text or missed something. Higher-resolution images help.
+2. Open **Guideline searches** to see which rules the AI looked up.
+3. Adjust `prompts/describe.md` or `prompts/judge.md` if a mistake keeps repeating.
 
 ### Port 8000 is already in use
 
-Set `PORT=8001` (or another number) in `.env`, then open `http://127.0.0.1:8001`.
+Set `PORT=8001` in `.env` and open `http://127.0.0.1:8001`.
 
 ---
 
-## 12. Known limits
+## 11. Known limits
 
-- **One program at a time** uses the database (unless you use the Qdrant server; see above).
-- **While a large upload is being added**, questions wait until it finishes.
-- **Chats are not saved.** Reloading the page or clicking *New chat* clears the conversation.
-- **Spreadsheet filters match text *inside* a cell.** Filtering Type for `Banner` also matches
-  `Column Banner`. Ask for the exact value if that matters.
-- **Duplicate rows are kept.** Identical rows in a spreadsheet are stored and counted separately.
-- **Typos in the data are not corrected.** `Unidentify` and `Undentify` are counted as two
-  different values. Fix them in the source file.
-- **Number columns can't be added up yet.** The tool counts rows; it doesn't sum or average values.
-- **Scanned PDFs and old `.xls` files** are not supported (see Troubleshooting).
+- **It's a pre-screen.** It can't replace ASC screening, and a person must review every result.
+- **It only knows what the vision model sees.** Very small, blurry or stylized text may be
+  misread or missed, which can cause false "missing statement" findings.
+- **Documents can't be checked.** Claims that need proof (sales data for "No. 1", research for
+  "best", permits, licenses) are noted as needing documents, not flagged as violations.
+- **Images only:** JPG and PNG. No video, audio or multi-page PDFs.
+- **One check at a time.** Others wait in line (the page says "Waiting for another check").
+- **Decisions aren't saved.** Use **Download PDF report**.
+- **The rules are from the ASC Guidebook of March 2019** (the version loaded in Qdrant and
+  summarized in the prompts). Update both if ASC publishes changes.
 
 ---
 
-## 13. Web API reference
+## 12. Web API reference
 
-`server.py` only accepts connections from this computer (`127.0.0.1`).
+The server only accepts connections from this computer (`127.0.0.1`).
 
-| Method | Address | What it does | Sends back |
-|---|---|---|---|
-| `GET` | `/` | The web page | HTML |
-| `GET` | `/api/status` | Health check | `{chat_model, embedding_model, chunks, ollama, device, tools}` |
-| `GET` | `/api/documents` | List the files in `documents/` | `[{name, size}]` |
-| `POST` | `/api/upload` | Upload one or more files (form field `files`) and add them to the database | `{files, chunks}` |
-| `DELETE` | `/api/documents/{name}` | Delete a file and its chunks | `{deleted}` |
-| `POST` | `/api/chat` | Ask a question. Body: `{message, history: [{role, content}]}` | A stream of JSON lines (see below) |
-
-`/api/chat` sends one JSON object per line while the answer is being made:
-
-| `type` | Other fields | Meaning |
+| Method | Address | What it does |
 |---|---|---|
-| `sources` | `sources: [..]` | Files used for this answer |
-| `thinking` | `text` | A piece of the AI's reasoning |
-| `tool` | `label`, `summary` | A spreadsheet query that was run |
-| `token` | `text` | A piece of the answer |
-| `done` | | The answer is complete |
+| `GET` | `/` | The web page |
+| `GET` | `/api/status` | Readiness: `{ollama, missing_models, qdrant, passages, judge_tools, device, busy, …}` |
+| `POST` | `/api/check` | Check an image. Send it as form field `image` (JPG/PNG). Replies with a stream of JSON lines. |
+| `POST` | `/api/report` | Make the PDF report. Form fields: `image` (the same image) and `data` (JSON: `{result, decision, notes, file_name}`). Replies with the PDF file. |
+
+`/api/check` sends one JSON object per line:
+
+| `type` | Fields | Meaning |
+|---|---|---|
+| `queued` | | Another check is running; this one waits |
+| `stage` | `value`: `describe` / `judge` / `verify` | A new step started |
+| `describe` | `text` | A piece of the image description |
+| `thinking` | `text` | A piece of the judge's reasoning |
+| `search` | `query`, `result` | A guideline search and the passages found |
+| `tokens` | `value` | How full the judge's memory is |
+| `result` | `result`, `reasons`, `checks_passed`, `approval_summary`, `removed_reasons`, `description`, `seconds`, … | The final result |
 | `error` | `message` | Something went wrong |
 
-Example test from PowerShell (with the server running):
+Example from PowerShell:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/api/status
+curl.exe -F "image=@C:\path\to\ad.png" http://127.0.0.1:8000/api/check
 ```
 
 ---
 
 ## Privacy
 
-- The AI models, the database and your documents all stay on this computer.
-- The web server only accepts connections from this computer.
-- The web page loads nothing from the internet.
-- The internet is only used during installation, and when Ollama checks for its own updates.
+- Images are processed in memory and **never stored** by the app.
+- The AI models, the guidelines and the web page all run on this computer. The page loads nothing
+  from the internet.
+- The internet is only used during installation, and when Ollama or Docker check for updates.

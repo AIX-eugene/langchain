@@ -1,0 +1,218 @@
+{
+  "G-01": [
+    "Respect for country and the law",
+    "Article I, Section 1: ads must not damage the image of the Philippines or Filipinos, or undermine respect for the government, the law, or law enforcement."
+  ],
+  "G-02": [
+    "National symbols",
+    "Article I, Section 2: the Philippine flag, the national seal, heroes, historical events and landmarks may only be used with NHCP approval, and must be shown accurately and respectfully. Philippine money needs BSP clearance."
+  ],
+  "G-03": [
+    "Religion and Filipino culture",
+    "Article I, Section 3: ads must respect religious beliefs, Filipino culture, traditions and family values, and must never ridicule them."
+  ],
+  "G-04": [
+    "Decency (sex, nudity, vulgarity)",
+    "Article I, Section 4 and Manual Annex 3: ads must not show nudity, skimpy or see-through clothing, suggestive poses or intimate contact, or vulgar language. Billboards and other OOH ads are seen by all ages, so they must be wholesome."
+  ],
+  "G-05": [
+    "Crime, violence and morbidity",
+    "Article I, Section 5: ads must not promote violence, weapons, crime or anti-social behavior, and must not show gory or morbid details."
+  ],
+  "G-06": [
+    "Honest and truthful presentation",
+    "Article II, Sections 1-2: ads must be honest and must not mislead about what the product is, what it contains, where it comes from, or what it does."
+  ],
+  "G-07": [
+    "Ad must be clearly an ad",
+    "Article II, Section 1: ads must not look like news, editorials or public service announcements, and must not use words like \"Newsflash\"."
+  ],
+  "G-08": [
+    "Fear and superstition",
+    "Article II, Section 1: ads must not play on fear, cause panic, or exploit belief in superstition, fortune-telling or similar practices."
+  ],
+  "G-09": [
+    "Confusion with other brands",
+    "Article II, Section 3: ads must not confuse people about who the advertiser is, or copy features that belong to another brand's ads."
+  ],
+  "G-10": [
+    "Health and safety",
+    "Article II, Section 4: ads must not show dangerous acts without a clear warning, must not show the act of drinking alcohol or smoking, and must not encourage overeating or excessive drinking."
+  ],
+  "G-11": [
+    "Protection of children",
+    "Article III: ads must not show children in unsafe or improper situations, exploit their trust, or connect them with alcohol, tobacco, gambling or medicine without adult supervision."
+  ],
+  "G-12": [
+    "Disparagement",
+    "Article IV, Section 1: ads must not ridicule or attack any person, group, competitor or competitor's ad, including through humor."
+  ],
+  "G-13": [
+    "Plagiarism and pre-emptive rights",
+    "Article IV, Section 6: ads must not copy the distinctive slogan, layout or execution of another brand's ad."
+  ],
+  "G-14": [
+    "No ASC endorsement",
+    "Article V, Section 7(n): ads must not say or suggest that they are approved or endorsed by the Ad Standards Council."
+  ],
+  "C-01": [
+    "Qualifiers",
+    "Code Annex 2: a claim that needs a qualifier (such as \"vs. leading brand\" or \"with regular use\") must show it right next to the claim, readable, and at about half the claim's font size."
+  ],
+  "C-02": [
+    "No. 1 / leadership claim",
+    "Article V, Section 2: a \"No. 1\" claim must be backed by 12 months of independent sales data (volume and value), and must say the area if it is limited."
+  ],
+  "C-03": [
+    "Absolute claim",
+    "Article V, Section 3: a claim that the product always works (\"guaranteed\", \"100%\") must be backed by independent third-party data."
+  ],
+  "C-04": [
+    "Exclusivity claim",
+    "Article V, Section 4: a claim that the product is \"the only one\" with a benefit must be backed by independent third-party data."
+  ],
+  "C-05": [
+    "Comparative claim",
+    "Article V, Section 5 and Article IV, Section 2: a comparison must say what it is compared with, must be backed by data, and must not mislead or put down others."
+  ],
+  "C-06": [
+    "Direct comparison with a named brand",
+    "Article IV, Section 2: naming or showing a competitor is only allowed for cars, appliances and electronics, airlines and shipping, musical instruments, and mobile devices, and only with measurable facts."
+  ],
+  "C-07": [
+    "Superiority claim",
+    "Article V, Section 6: claims that a product is better than ALL competitors, such as \"best\", \"most trusted\" or \"most preferred\", must be backed by independent quantitative research that is updated every year."
+  ],
+  "C-08": [
+    "Ingredient claims",
+    "Article V, Section 1: an ad must not suggest that a product contains an ingredient, or that a benefit comes from it, unless this is technically proven."
+  ],
+  "C-09": [
+    "Testimonials and endorsers",
+    "Article V, Section 7: testimonials must be genuine personal opinions, endorsers must be named with their expertise, and testimonials must not be used to make a prohibited claim."
+  ],
+  "C-10": [
+    "Quotations from famous people",
+    "Article V, Section 8: quotes must name their source, and must not be used to make a prohibited claim."
+  ],
+  "C-11": [
+    "Scientific claims and data",
+    "Article V, Sections 9 and 11: lab data, statistics and scientific terms must be accurate, in context, and based on real research."
+  ],
+  "C-12": [
+    "Before-and-after comparison",
+    "Article IV, Section 3: before-and-after images must be truthful and must clearly state how much time passed between \"before\" and \"after\"."
+  ],
+  "C-13": [
+    "Use of \"new\" or \"improved\"",
+    "Article IV, Section 4: words like \"new\" or \"improved\" may only be used for one year after launch, and must name the specific change if only the look, scent or pack changed."
+  ],
+  "C-14": [
+    "Suggestive brand name",
+    "Article IV, Section 5: if the brand name suggests something the product is not, the ad must clearly say what the product really is."
+  ],
+  "C-15": [
+    "Special qualifiers",
+    "Article IV, Section 2: \"Serving suggestion\" is required when food is shown with extras that are not included, and \"Creative visualization\" when showing actions the eye cannot see."
+  ],
+  "C-16": [
+    "Environmental claims",
+    "Article VI: claims like \"eco-friendly\" or \"sustainable\" must be proven, specific about what they refer to, and must not use symbols that suggest a certification that does not exist."
+  ],
+  "C-17": [
+    "Heritage claim",
+    "Article XI, Section 5: claims about a company's or brand's years of existence must be backed by documents."
+  ],
+  "P-01": [
+    "Price advertising",
+    "Article IX, Section 1: prices must be complete and accurate, labeled \"SRP\" (or \"price varies\" for restaurants), and must not use misleading comparisons."
+  ],
+  "P-02": [
+    "Discounts and special sales",
+    "Article IX, Section 2: a discount must show the previous price, and the ad must say which stores, areas and products are covered."
+  ],
+  "P-03": [
+    "Installment offers",
+    "Article IX, Section 3: installment or lease offers must show the complete terms and the total cost, including all fees."
+  ],
+  "P-04": [
+    "Promo permit",
+    "Article XI, Section 1: contests, raffles and prize promos need a government permit (DTI or DOH-FDA), and the ad must show the promo period and the permit number."
+  ],
+  "P-05": [
+    "Promo terms",
+    "Article XI, Section 3: the main conditions of a promo must be clear before purchase, and \"win\" must be qualified (e.g. \"a chance to win\") unless winning is guaranteed."
+  ],
+  "P-06": [
+    "Use of \"free\"",
+    "Article XI, Section 3(b): \"free\" may only be used if the regular price was not raised and the free item is a real extra."
+  ],
+  "P-07": [
+    "Guarantees and warranties",
+    "Article XI, Section 4: a guarantee or warranty must clearly state what it covers, its value and how long it lasts."
+  ],
+  "R-ALC": [
+    "Alcohol beverage rules",
+    "Article VII, Section 7: alcohol ads must carry \"DRINK RESPONSIBLY\" prominently, show only people 21 or older, and must not show the act of drinking, intoxication, excessive drinking, drinking with driving, sexual appeal, health or energy claims, or appeal to minors."
+  ],
+  "R-SUPP": [
+    "Food / dietary supplement rules",
+    "Article VII, Section 5 and FDA AO 2010-008: supplement ads must carry \"MAHALAGANG PAALALA: ANG [PRODUCT] AY HINDI GAMOT…\" at the top in white caps on a black band, and must not make therapeutic, \"clinically proven\", \"FDA approved\", slimming or other prohibited claims."
+  ],
+  "R-OTC": [
+    "Non-prescription (OTC) medicine rules",
+    "Article VII, Sections 1-3: OTC ads must carry \"If symptoms persist, consult your doctor.\", show the generic name in a box larger than the brand, and must not claim to be \"safe\", \"instant\", \"100%\", doctor-recommended or FDA approved."
+  ],
+  "R-VIT": [
+    "Vitamins and minerals",
+    "Article VII, Section 4: ads must not say that vitamins alone guarantee good health, and food-registered products need the \"MAHALAGANG PAALALA\" statement."
+  ],
+  "R-TOB": [
+    "Cigarettes and tobacco",
+    "Article VII, Section 8: tobacco may only be advertised at the point of sale, as allowed by law."
+  ],
+  "R-GAM": [
+    "Gaming / gambling",
+    "Article VII, Section 9: gaming ads must carry \"Gaming for 21 years old & above only. Keep it Fun. Game Responsibly.\", and must not target minors or present gambling as a way to make money."
+  ],
+  "R-MILK": [
+    "Milk Code products",
+    "Article VIII, Section 5 and the Milk Code: infant formula, milk supplements and baby food ads need DOH-IAC approval, the required health statements, and must not suggest they equal or beat breastmilk."
+  ],
+  "R-COS": [
+    "Cosmetics",
+    "Article VIII, Section 6 and the ASEAN Cosmetic Claim Guideline: cosmetics may only clean, beautify, perfume or protect, and must not claim to treat, cure or prevent any disease."
+  ],
+  "R-FIN": [
+    "Banks and financial services",
+    "Article VIII, Section 1 and BSP Circular 857: financial ads must say \"Regulated by the Bangko Sentral ng Pilipinas\", show complete terms, and state whether rates are guaranteed and what the risks are."
+  ],
+  "R-RE": [
+    "Real estate",
+    "Article VIII, Section 8: property ads must show the developer, exact location, License to Sell number, ad approval number and completion date, and label pictures as actual photos or artist's illustrations."
+  ],
+  "R-TEL": [
+    "Telecom",
+    "Article VII, Section 10: only NTC-authorized services may be advertised, and broadband speed ads must state the average and minimum speed."
+  ],
+  "R-AIR": [
+    "Airline promo fares",
+    "Airline promo fare ads must show the CAB approval number and the complete fare terms."
+  ],
+  "R-EDU": [
+    "Schools and training",
+    "Article VIII, Section 2: school ads must not exaggerate the jobs or opportunities waiting for graduates."
+  ],
+  "R-ASM": [
+    "Products needing assembly",
+    "Article VIII, Section 3: products that must be assembled must say so clearly."
+  ],
+  "R-CHAR": [
+    "Charity tie-ins",
+    "Article VIII, Section 4: ads linked to a charitable cause must name the specific beneficiary."
+  ],
+  "R-AGRI": [
+    "Agrochemical and veterinary products",
+    "Article VIII, Section 7: these ads must follow FAO and BAI rules, and veterinary claims must stay within approved uses."
+  ]
+}
