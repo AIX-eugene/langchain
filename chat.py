@@ -2,9 +2,10 @@ import re  # Standard library module for finding patterns in text
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage  # Message types for the conversation
 
-from config import CHAT_CONTEXT_CHARS, CHAT_HISTORY, CHAT_REASONING, JUDGE_NUM_CTX, read_prompt  # Settings and prompt files
+from config import CHAT_MAX_TOKENS, CHAT_REASONING, read_prompt  # Settings and prompt files
 from judge import search_loop  # Think, search the ASC guidelines, answer
 from guidelines import GuidelineSourceUnavailable, retrieve_guidelines
+from chat_context import select_context
 from chat_scope import SCOPE_REPLY, in_scope, quick_reply
 
 
@@ -15,7 +16,7 @@ def required_authorities(message, history):
     selected = named(message)
     if selected:
         return selected
-    for earlier in reversed(history[-CHAT_HISTORY:]):
+    for earlier in reversed(history):
         if earlier.get('role') == 'user':
             selected = named(str(earlier.get('content', '')))
             if selected:
@@ -26,8 +27,6 @@ def required_authorities(message, history):
 
 CHAT_SEARCHES = 3  # Most guideline searches per chat answer (keeps answers quick)
 CHAT_TEMPERATURE = 0.2  # Low creativity: chat answers should stick to what the rules actually say
-RESERVED_TOKENS = 11500  # Room kept for the instructions (~6,400 tokens), searches and the answer
-HISTORY_CHARS = CHAT_CONTEXT_CHARS  # Characters of earlier messages the AI re-reads (the per-chat memory limit; the page blocks sending when a chat is full)
 MEASUREMENT = re.compile(  # A number with a unit, e.g. "12 pt", "1-2 inches", "10%", "30 m"
     r"\b\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?\s*(?:%|percent\b|pt\b|points?\b|px\b|pixels?\b|inch(?:es)?\b|in\b|cm\b|mm\b|ft\b|feet\b|foot\b|m\b|meters?\b|metres?\b)",
     re.IGNORECASE,  # Any capitalization
@@ -45,18 +44,8 @@ def system_prompt():  # The chat instructions, with the checklist filled in
 
 
 def recent_history(history):  # The newest earlier messages that fit in the AI's memory, oldest first
-    kept, used = [], 0  # Messages kept, and their total length
-    for m in reversed(history[-CHAT_HISTORY:]):  # Newest first
-        content = str(m.get("content", "")).strip()  # The message text
-        if not content:  # Empty
-            continue  # Skip it
-        if used + len(content) > HISTORY_CHARS:  # It doesn't fit any more
-            if not kept:  # Even the newest message is too long
-                kept.append((m.get("role"), content[: HISTORY_CHARS] + "\n[…shortened]"))  # Keep its start
-            break  # Older messages are dropped
-        kept.append((m.get("role"), content))  # Keep it
-        used += len(content)  # Count it
-    return [AIMessage(c) if role == "assistant" else HumanMessage(c) for role, c in reversed(kept)]  # Back in time order
+    return [AIMessage(m["content"]) if m["role"] == "assistant" else HumanMessage(m["content"])
+            for m in history]
 
 
 def measurements(text):  # Every measurement in a text, as (as written, comparable form), e.g. ("12 pt", "12pt")
@@ -73,6 +62,7 @@ def unsupported_measurements(answer, sources):  # Measurements in the answer tha
 
 
 def chat_stream(message, history):  # Answers a chat message (no image); yields (kind, data) events
+    history, _ = select_context(message, history)
     reply = quick_reply(message)
     if reply is not None:
         yield 'token', reply
@@ -87,7 +77,7 @@ def chat_stream(message, history):  # Answers a chat message (no image); yields 
     for authority in authorities:
         query = message
         if not re.search(r'\b(macea|asc)\b', message, re.I):
-            previous = next((str(m.get('content', '')) for m in reversed(history[-CHAT_HISTORY:])
+            previous = next((str(m.get('content', '')) for m in reversed(history)
                              if m.get('role') == 'user' and re.search(rf'\b{authority}\b', str(m.get('content', '')), re.I)), '')
             query = previous[-500:] + '\n' + message
         try:
@@ -105,7 +95,7 @@ def chat_stream(message, history):  # Answers a chat message (no image); yields 
             'Earlier assistant messages are not verified sources. If these passages do not establish a requested fact, '
             'say it could not be verified; do not fill the gap from memory. '
             'Use these passages internally; do not include document names, page references, or search queries in the answer.\n' + result))
-    for kind, data in search_loop(messages, stream_text=True, max_searches=max(0, CHAT_SEARCHES-len(authorities)), temperature=CHAT_TEMPERATURE, effort=CHAT_REASONING, show_references=False):
+    for kind, data in search_loop(messages, stream_text=True, max_searches=max(0, CHAT_SEARCHES-len(authorities)), temperature=CHAT_TEMPERATURE, effort=CHAT_REASONING, show_references=False, max_tokens=CHAT_MAX_TOKENS):
         if kind == "token":  # A piece of the answer
             answer += data  # Keep it for the check below
         elif kind == "search":  # Passages the AI read

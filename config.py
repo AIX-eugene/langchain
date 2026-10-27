@@ -21,8 +21,11 @@ KEEP_ALIVE = os.getenv("KEEP_ALIVE", "30m").strip()  # How long the judge stays 
 EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "auto").strip()  # Where search embeddings run; "auto" = a processor-only Ollama copy the app starts itself
 JUDGE_NUM_CTX = int(os.getenv("JUDGE_NUM_CTX", "16384"))  # How much text the judge can read at once. Its instructions alone are ~8,000 tokens; bigger values no longer fit a 16 GB GPU and run much slower
 VISION_NUM_CTX = int(os.getenv("VISION_NUM_CTX", "8192"))  # How much text the vision model can read and write at once
-CHAT_CONTEXT_LIMIT = int(os.getenv("CHAT_CONTEXT_LIMIT", "0")) or max(2000, JUDGE_NUM_CTX - 11500)  # Memory per chat, in tokens: the earlier messages the AI re-reads each turn. Default = what fits next to its ~11,500 tokens of instructions, searches and answer
-CHAT_CONTEXT_CHARS = int(CHAT_CONTEXT_LIMIT * 3.5)  # The same limit in characters (about 3.5 characters per token)
+CHAT_MAX_TOKENS = max(1, int(os.getenv("CHAT_MAX_TOKENS", "512")))
+CHAT_CONTEXT_LIMIT = max(1, int(os.getenv("CHAT_CONTEXT_LIMIT", "8000")) or 8000)
+# Reserve space for instructions, retrieval, tool definitions and the generated reply.
+CHAT_EFFECTIVE_CONTEXT = max(0, min(CHAT_CONTEXT_LIMIT, JUDGE_NUM_CTX - 11500 - CHAT_MAX_TOKENS))
+CHAT_CONTEXT_CHARS = int(CHAT_EFFECTIVE_CONTEXT * 3.5)
 VISION_MAX_TOKENS = int(os.getenv('VISION_MAX_TOKENS', '4096'))
 IMAGE_JUDGE_MAX_TOKENS = int(os.getenv('IMAGE_JUDGE_MAX_TOKENS', '6144'))
 IMAGE_JUDGE_REASONING = os.getenv('IMAGE_JUDGE_REASONING', 'medium').strip()

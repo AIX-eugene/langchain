@@ -14,7 +14,9 @@ import guidelines  # The asc_guidelines collection on the Qdrant server
 from document_ingestion import UPLOAD_COLLECTION, ingest_document, read_upload, source_name
 from config import (  # Settings
     CHAT_CONTEXT_CHARS,  # Memory limit per chat, in characters
-    CHAT_CONTEXT_LIMIT,  # The same limit in tokens
+    CHAT_CONTEXT_LIMIT,
+    CHAT_EFFECTIVE_CONTEXT,
+    CHAT_MAX_TOKENS,  # The same limit in tokens
     COLLECTION,  # Guidelines collection name
     EMBEDDING_MODEL,  # Search model
     IMAGE_TYPES,  # Accepted image files
@@ -25,6 +27,7 @@ from config import (  # Settings
     QDRANT_URL,  # Where Qdrant runs
     VISION_MODEL,  # Step 1 model
 )  # End of settings
+from chat_context import select_context
 from chat import chat_stream  # Chat answers (no image)
 from embed_server import embedding_url  # Processor-only Ollama copy for guideline searches
 from judge import model_capabilities, warm_up  # What the judge model can do; loading it ahead of time
@@ -94,7 +97,7 @@ def status():  # Reports whether Ollama, the models and the guidelines are ready
         "vision_model": VISION_MODEL, "judge_model": JUDGE_MODEL, "embedding_model": EMBEDDING_MODEL,  # Model names
         "collection": COLLECTION, "ollama": False, "missing_models": [], "qdrant": False, "passages": 0,  # Services
         "judge_tools": False, "device": None, "busy": check_lock.locked(),  # Features and activity
-        "context_limit_chars": CHAT_CONTEXT_CHARS, "context_limit_tokens": CHAT_CONTEXT_LIMIT,  # Memory limit per chat (for the usage bar)
+        "context_limit_chars": CHAT_CONTEXT_CHARS, "context_limit_tokens": CHAT_EFFECTIVE_CONTEXT, "requested_context_tokens": CHAT_CONTEXT_LIMIT, "reply_limit_tokens": CHAT_MAX_TOKENS,  # Memory limit per chat (for the usage bar)
     }  # End of defaults
     try:  # Ollama might not be running
         client = ollama.Client(host=OLLAMA_URL)  # Connection to Ollama
@@ -154,15 +157,19 @@ def chat(message: str = Form(""), history: str = Form("[]"), image: UploadFile |
         earlier = json.loads(history)  # [{"role": "user" | "assistant", "content": "..."}]
     except json.JSONDecodeError:  # Broken history
         earlier = []  # Start without it
-    used = sum(len(str(m.get("content", ""))) for m in earlier if isinstance(m, dict)) + len(message)  # This chat's memory use, in characters
-    if used > CHAT_CONTEXT_CHARS:  # The chat is full: the AI couldn't re-read all of it
-        raise HTTPException(409, "This chat has reached its length limit. Start a new chat to continue.")  # The page shows this
     if image is not None and image.filename:  # An image is attached: check it against the ASC guidelines
         data = read_image(image)  # The image
         return stream_events(lambda: check_image(data, note=message))  # The full check; the message is passed on as context
     if not message.strip():  # No image and no text
         raise HTTPException(400, "Type a message or attach an image.")  # Nothing to do
-    return stream_events(lambda: chat_stream(message, earlier if isinstance(earlier, list) else []))  # A chat answer
+    try:
+        earlier, context = select_context(message, earlier)
+    except ValueError as exc:
+        raise HTTPException(413, str(exc)) from exc
+    def answer_events():
+        yield "context", context
+        yield from chat_stream(message, earlier)
+    return stream_events(answer_events)  # A chat answer
 
 
 @app.post("/api/check")  # Check one ad image (without chat; used by scripts)

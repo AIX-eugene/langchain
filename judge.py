@@ -36,10 +36,11 @@ def thinking_setting(effort):  # How the model should think: an effort level for
     return True  # Other thinking models: thinking on
 
 
-def get_judge(temperature=None, effort=JUDGE_REASONING):  # Creates the judge model client (also used for chat answers)
+def get_judge(temperature=None, effort=JUDGE_REASONING, max_tokens=None):  # Creates the judge model client (also used for chat answers)
     return ChatOllama(  # Talk to the model through Ollama
         model=JUDGE_MODEL,  # gpt-oss:20b by default
         base_url=OLLAMA_URL,  # Where Ollama is
+        num_predict=max_tokens,
         num_ctx=JUDGE_NUM_CTX,  # Room for the instructions, the conversation and the search results
         reasoning=thinking_setting(effort),  # How long to think, kept separate from the answer
         temperature=temperature,  # Lower = sticks closer to the rules, less "creative" (None = the model's default, as in n8n)
@@ -55,8 +56,8 @@ def warm_up():  # Loads the judge and pre-reads the chat instructions, so the fi
         pass  # The first real question will load it instead
 
 
-def search_loop(messages, stream_text=False, max_searches=MAX_SEARCHES, temperature=None, effort=JUDGE_REASONING, show_references=True):
-    llm = get_judge(temperature, effort)  # The model
+def search_loop(messages, stream_text=False, max_searches=MAX_SEARCHES, temperature=None, effort=JUDGE_REASONING, show_references=True, max_tokens=None):
+    llm = get_judge(temperature, effort, max_tokens) if max_tokens is not None else get_judge(temperature, effort)  # The model
     can_search = max_searches > 0 and "tools" in model_capabilities()
     messages = [SystemMessage(ROUTING_INSTRUCTIONS + '\n\n' + read_prompt('macea.md')), *messages]
     if not show_references:
@@ -67,10 +68,19 @@ def search_loop(messages, stream_text=False, max_searches=MAX_SEARCHES, temperat
             'or "see the overview". This overrides earlier instructions to display citations. '
             'Do not output SVG markup or the word svg as a UI artifact.'))
     model = llm.bind_tools([asc_guidelines, macea_guidelines]) if can_search else llm
+    remaining = max_tokens
     searches, queries, seen = 0, set(), set()  # Searches made, their queries, and passages already shown
     while True:  # Until the model gives its final answer
+        if max_tokens is not None:
+            estimated = sum((len(str(m.content)) + 3) // 3 + 16 for m in messages)
+            if estimated + max_tokens + 512 > JUDGE_NUM_CTX:
+                yield "token", "I could not fit the required guideline evidence into the model context. Please narrow your question."
+                return
         reply = None  # The model's full reply, built up piece by piece
-        for chunk in model.stream(messages):  # Ask the model, piece by piece
+        options = {} if remaining is None else {'options': {
+            'num_predict': remaining, 'num_ctx': JUDGE_NUM_CTX,
+            'temperature': temperature if temperature is not None else 0.2}}
+        for chunk in model.stream(messages, **options):  # Ask the model, piece by piece
             thinking = chunk.additional_kwargs.get("reasoning_content")  # Its thinking, if any
             if thinking:  # There is some
                 yield "thinking", thinking  # Pass it on
@@ -82,6 +92,16 @@ def search_loop(messages, stream_text=False, max_searches=MAX_SEARCHES, temperat
             return  # Stop
         used = (reply.usage_metadata or {}).get("total_tokens", 0)  # How much of the model's memory this conversation fills
         yield "tokens", used  # Report it (useful when tuning JUDGE_NUM_CTX)
+        if max_tokens is not None and (reply.response_metadata or {}).get("done_reason") == "length":
+            yield "warning", "The response reached its token limit and may be incomplete. Ask a focused follow-up for more detail."
+        if remaining is not None:
+            generated = (reply.usage_metadata or {}).get('output_tokens')
+            if generated is None:
+                generated = (reply.response_metadata or {}).get('eval_count', (len(reply.text) + 2) // 3)
+            remaining -= max(1, generated)
+            if remaining <= 0 and reply.tool_calls:
+                yield "warning", "The response budget was exhausted during guideline lookup. Please ask a narrower question."
+                return
         if not reply.tool_calls:  # No more searches: this is the final answer
             yield "answer", reply.text  # The full answer text
             return  # Done

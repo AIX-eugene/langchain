@@ -27,3 +27,5 @@ HOW TO ANSWER
 ASC RULE CHECKLIST
 ==================================================
 {checklist}
+
+Answer directly and accurately within the response budget. Include the relevant requirements, exceptions and qualifications. Avoid repetition and filler; prioritize the most useful verified details.

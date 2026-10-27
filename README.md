@@ -656,3 +656,23 @@ Image results distinguish `COMPLIANT`, `NON-COMPLIANT`, `NEEDS_REVIEW`, and `ERR
 A proposed approval or rejection receives a separate model evidence audit against the observations, rule summaries and retrieved passages. Audit disagreement, truncation, or failure changes the result to `NEEDS_REVIEW`, never to the opposite verdict. This adds processing time relative to the earlier fast path. The UI, CLI and PDF report recognize the review outcome.
 
 Result `analysis` metadata includes the image, description, source and instruction hashes plus effective seed and reasoning level, so repeated checks can be compared without retaining original uploads. These safeguards reduce unsupported decisions; they do not independently establish OCR ground truth, legal compliance or guaranteed accuracy. Validate model quality against labeled real ads before relying on the pre-screen's decisions. Explicit `.env` overrides take precedence over the updated defaults.
+
+
+## Aida rolling conversation limits
+
+`CHAT_CONTEXT_LIMIT=8000` sets the approximate rolling context ceiling.
+`CHAT_MAX_TOKENS=512` caps each chat generation, including reasoning where the
+provider counts it. The effective allowance is the smaller of the ceiling and
+`JUDGE_NUM_CTX - 11500 - CHAT_MAX_TOKENS` (4,372 with the default model window).
+Space is reserved for instructions, guideline evidence and output. Counts use
+a character estimate rather than an exact tokenizer. An additional prompt-size
+check refuses evidence that cannot fit; narrow the question if this occurs.
+
+Older exchanges remain visible and saved but leave active model context. Only
+recent complete exchanges influence scope, authority routing and answers. There
+is no turn-count limit; the existing 30 browser-saved chats are unchanged. A
+single oversized question returns HTTP 413 with an inline shortening message.
+`/api/status` exposes effective/requested context and reply limits. Streaming
+`context` events include `estimated_tokens`, `limit_tokens`, `omitted`, and
+`approximate`. Provider length stops produce an incomplete-response warning.
+Image-review generation limits remain separate.

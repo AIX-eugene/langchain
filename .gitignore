@@ -14,3 +14,14 @@ wheels/
 
 # Local Qdrant database
 qdrant_data/
+
+# Keep automated test cases local; exclude them from commits and pushes.
+test_*.py
+*_test.py
+test_*.cjs
+test_*.js
+test_*.mjs
+*.test.*
+*.spec.*
+tests/
+__tests__/

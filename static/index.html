@@ -291,8 +291,8 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
   <header>
     <button type="button" class="icon-btn" id="menuBtn" aria-label="Open chats" title="Open chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="chat-title" id="chatTitle"></div>
-    <div class="usage" id="usage" title="How much of this chat the AI can remember. Each answer re-reads the whole conversation; when it's full, start a new chat.">
-      <span class="usage-label">Chat memory</span>
+    <div class="usage" id="usage" title="Approximate rolling context. Older exchanges stay visible but may leave the AI's context.">
+      <span class="usage-label">Context (approx.)</span>
       <span class="usage-bar" role="progressbar" aria-label="Chat memory used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="usageBar"><i id="usageFill"></i></span>
       <span class="usage-pct" id="usagePct">0%</span>
     </div>
@@ -322,7 +322,7 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
   <div class="composer-wrap">
     <button type="button" class="jump" id="jumpBtn" aria-label="Scroll to the latest message" title="Scroll to the latest message" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
     <div class="full-note" id="fullNote" hidden>
-      <span id="fullText">This chat has reached its length limit. Start a new chat to continue.</span>
+      <span id="fullText">Older exchanges remain visible but are outside the active context. You can keep chatting.</span>
       <button type="button" class="btn primary" id="fullNewChat">New chat</button>
     </div>
     <form class="composer" id="composer">
@@ -597,7 +597,8 @@ function chatUI() {
       else if (ev.type === "thinking") { more.think(ev.text); if (!answer) setActivity("Thinking…"); }
       else if (ev.type === "search") { setActivity("Checking guidelines…"); }
       else if (ev.type === "token") { answer += ev.text; setActivity(""); render(); }
-      else if (ev.type === "warning") warning = ev.text;
+      else if (ev.type === "context") showContext(ev);
+      else if (ev.type === "warning") warning = warning ? warning + " " + ev.text : ev.text;
     },
     finish() {
       cancelAnimationFrame(frame); setActivity("");
@@ -821,6 +822,7 @@ async function restoreChat() {
     }
   }
   scrollDown(true);
+  previewContext();
 }
 
 // The chat list in the sidebar, grouped by date like other chat apps
@@ -871,12 +873,43 @@ $("scrim").addEventListener("click", closeDrawer);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
 try { if (localStorage.getItem(SIDEBAR_KEY) === "collapsed") setCollapsed(true); } catch {}
 renderHistory();
-restoreChat().then(renderHistory);
+
+
+// Server context events are authoritative; preview also handles restored chats.
+let contextLimit = 0, replyLimit = 512;
+function showContext(ev) {
+  const pct = ev.limit_tokens ? Math.min(100, Math.round(ev.estimated_tokens / ev.limit_tokens * 100)) : 0;
+  $("usagePct").textContent = pct + "%";
+  $("usageFill").style.width = pct + "%";
+  $("usageBar").setAttribute("aria-valuenow", pct);
+  $("usage").title = `Approximately ${ev.estimated_tokens.toLocaleString()} / ${ev.limit_tokens.toLocaleString()} context tokens. Reply cap: ${replyLimit} tokens.`;
+  $("fullNote").hidden = !ev.omitted;
+}
+function previewContext() {
+  if (!contextLimit) return;
+  let used = Math.ceil(input.value.trim().length / 3.5) + 8, omitted = false;
+  const pairs = []; let pending = null;
+  for (const m of history) {
+    if (!m || typeof m.content !== "string" || !m.content.trim()) continue;
+    if (m.role === "user") pending = m;
+    else if (m.role === "assistant" && pending) { pairs.push([pending, m]); pending = null; }
+  }
+  for (const pair of pairs.reverse()) {
+    const cost = pair.reduce((n, m) => n + Math.ceil(m.content.length / 3.5) + 8, 0);
+    if (used + cost > contextLimit) { omitted = true; break; }
+    used += cost;
+  }
+  showContext({ estimated_tokens: used, limit_tokens: contextLimit, omitted });
+}
+input.addEventListener("input", previewContext);
 
 // ---------- Setup check (only shown when something needs fixing) ----------
 async function refreshStatus() {
   try {
     const s = await fetch("/api/status").then((r) => r.json());
+    contextLimit = s.context_limit_tokens;
+    replyLimit = s.reply_limit_tokens;
+    previewContext();
     const problems = [];
     if (!s.ollama) problems.push("Start <b>Ollama</b> from the Start menu.");
     if (s.ollama && s.missing_models.length) problems.push("Download the missing model(s): " + s.missing_models.map((m) => `<code>ollama pull ${esc(m)}</code>`).join(" "));
@@ -889,6 +922,8 @@ async function refreshStatus() {
     $("setup").innerHTML = "<b>Can't reach the server.</b> Start it with <code>uv run server.py</code>, then reload this page.";
   }
 }
+restoreChat().then(renderHistory);
+$("fullNewChat").addEventListener("click", () => $("newChat").click());
 refreshStatus();
 setInterval(() => { if (!controller) refreshStatus(); }, 15000);
 input.focus();
