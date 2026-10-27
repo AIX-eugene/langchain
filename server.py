@@ -1,6 +1,7 @@
 import json  # Standard library module for turning data into JSON text
 import re  # Standard library module for cleaning up file names
 import threading  # Standard library module; a lock makes checks run one at a time (they share the graphics card)
+import queue
 from datetime import datetime  # Standard library module for the date in the report's file name
 from pathlib import Path  # Standard library module for working with files and folders
 
@@ -10,7 +11,10 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # Web framew
 from fastapi.responses import FileResponse, Response, StreamingResponse  # Ways to send a file, a PDF or a live stream back to the browser
 
 import guidelines  # The asc_guidelines collection on the Qdrant server
+from document_ingestion import UPLOAD_COLLECTION, ingest_document, read_upload, source_name
 from config import (  # Settings
+    CHAT_CONTEXT_CHARS,  # Memory limit per chat, in characters
+    CHAT_CONTEXT_LIMIT,  # The same limit in tokens
     COLLECTION,  # Guidelines collection name
     EMBEDDING_MODEL,  # Search model
     IMAGE_TYPES,  # Accepted image files
@@ -27,7 +31,7 @@ from judge import model_capabilities, warm_up  # What the judge model can do; lo
 from pipeline import check_image  # The whole check
 from report import build_report  # Makes the PDF report
 
-app = FastAPI(title="ASC Ad Pre-screen")  # Create the web app
+app = FastAPI(title="Aida")  # Create the web app
 check_lock = threading.Lock()  # Only one check at a time: the AI models share the graphics card
 STATIC_DIR = Path(__file__).parent / "static"  # Folder that holds the web page
 
@@ -50,12 +54,47 @@ def index():  # Sends the web page to the browser
     return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store"})  # The whole UI is in this one file; never cached, so updates show up on reload
 
 
+@app.get("/upload")
+def upload_page():
+    return FileResponse(STATIC_DIR / "upload.html", headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/documents")
+def upload_document(file: UploadFile = File(...), replace: bool = Form(False)):
+    try:
+        name = source_name(file.filename)
+        data = read_upload(file.file)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        file.file.close()
+    events = queue.SimpleQueue()
+    def work():
+        try:
+            for item in ingest_document(data, name, replace, collection=UPLOAD_COLLECTION):
+                events.put(item)
+        except Exception as exc:
+            events.put({'type': 'error', 'message': str(exc)})
+        finally:
+            events.put(None)
+    threading.Thread(target=work, daemon=True).start()
+    def stream():
+        yield event('stage', message='Waiting for ingestion')
+        while True:
+            item = events.get()
+            if item is None:
+                return
+            yield json.dumps(item) + '\n'
+    return StreamingResponse(stream(), media_type='application/x-ndjson')
+
+
 @app.get("/api/status")  # Health check shown at the top of the page
 def status():  # Reports whether Ollama, the models and the guidelines are ready
     info = {  # Defaults (assume nothing works until checked)
         "vision_model": VISION_MODEL, "judge_model": JUDGE_MODEL, "embedding_model": EMBEDDING_MODEL,  # Model names
         "collection": COLLECTION, "ollama": False, "missing_models": [], "qdrant": False, "passages": 0,  # Services
         "judge_tools": False, "device": None, "busy": check_lock.locked(),  # Features and activity
+        "context_limit_chars": CHAT_CONTEXT_CHARS, "context_limit_tokens": CHAT_CONTEXT_LIMIT,  # Memory limit per chat (for the usage bar)
     }  # End of defaults
     try:  # Ollama might not be running
         client = ollama.Client(host=OLLAMA_URL)  # Connection to Ollama
@@ -115,6 +154,9 @@ def chat(message: str = Form(""), history: str = Form("[]"), image: UploadFile |
         earlier = json.loads(history)  # [{"role": "user" | "assistant", "content": "..."}]
     except json.JSONDecodeError:  # Broken history
         earlier = []  # Start without it
+    used = sum(len(str(m.get("content", ""))) for m in earlier if isinstance(m, dict)) + len(message)  # This chat's memory use, in characters
+    if used > CHAT_CONTEXT_CHARS:  # The chat is full: the AI couldn't re-read all of it
+        raise HTTPException(409, "This chat has reached its length limit. Start a new chat to continue.")  # The page shows this
     if image is not None and image.filename:  # An image is attached: check it against the ASC guidelines
         data = read_image(image)  # The image
         return stream_events(lambda: check_image(data, note=message))  # The full check; the message is passed on as context

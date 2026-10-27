@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASC Assistant</title>
+<title>Aida</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* ---------- Colors (light theme) ---------- */
@@ -43,18 +43,65 @@
 
 /* ---------- Page layout ---------- */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; cursor: pointer; }
-.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+.layout { display: flex; height: 100vh; height: 100dvh; }
+.app { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
 
-/* Header */
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* Sidebar (left, collapsible) */
+.sidebar { width: 264px; flex: none; display: flex; flex-direction: column; background: var(--panel-2); border-right: 1px solid var(--border); overflow: hidden; transition: width .18s ease; }
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 10px 8px 16px; min-height: 56px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .logo { width: 30px; height: 30px; border-radius: 10px; background: var(--accent); display: grid; place-items: center; flex: none; }
 .logo svg { width: 17px; height: 17px; }
-.brand h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
-.header-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.brand h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+.side-btn { display: flex; align-items: center; gap: 10px; margin: 2px 8px; padding: 8px 10px; border: 0; background: none; border-radius: 10px; font-weight: 600; font-size: 14px; color: var(--text); text-decoration: none; white-space: nowrap; }
+.side-btn:hover { background: var(--border); }
+.side-btn svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
+.side-section { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 10px; }
+.side-label { font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 18px; }
+.history-list { list-style: none; margin: 0; padding: 0 8px 10px; overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+.history-group { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 12px 10px 3px; }
+.history-item { display: flex; align-items: center; border-radius: 9px; }
+.history-item:hover { background: var(--border); }
+.history-item.current { background: var(--panel); box-shadow: inset 0 0 0 1px var(--border); }
+.history-item .open { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 7px 10px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item .del { border: 0; background: none; color: var(--muted); padding: 5px 9px; border-radius: 8px; opacity: 0; font-size: 12px; }
+.history-item:hover .del, .history-item .del:focus-visible { opacity: 1; }
+.history-item .del:hover { color: var(--bad); }
+@media (hover: none) { .history-item .del { opacity: 1; } }
+.history-empty { color: var(--muted); font-size: 13px; padding: 8px 10px; }
+.side-foot { border-top: 1px solid var(--border); padding: 8px 12px 12px; }
+.link-btn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.link-btn:hover { color: var(--bad); }
+.history-note { color: var(--muted); font-size: 12px; margin: 2px 6px 0; }
+.scrim { display: none; }
+/* Collapsed (wide screens): a slim strip with just the icons */
+@media (min-width: 761px) {
+  .layout.collapsed .sidebar { width: 58px; }
+  .layout.collapsed .brand, .layout.collapsed .side-btn span, .layout.collapsed .side-section, .layout.collapsed .side-foot { display: none; }
+  .layout.collapsed .side-top { justify-content: center; padding: 12px 0 8px; }
+  .layout.collapsed .side-btn { justify-content: center; margin: 2px 8px; padding: 9px 0; }
+}
+
+/* Header above the chat */
+header { display: flex; align-items: center; gap: 8px; padding: 10px 20px; min-height: 56px; }
+#menuBtn { display: none; }
+.chat-title { font-size: 14px; font-weight: 600; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Chat memory usage bar */
+.usage { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); flex: none; cursor: help; }
+.usage-bar { width: 110px; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; display: block; }
+.usage-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width .3s ease, background .3s; }
+.usage.warn .usage-bar i { background: var(--warn); } .usage.warn .usage-pct { color: var(--warn); }
+.usage.full .usage-bar i { background: var(--bad); } .usage.full .usage-pct { color: var(--bad); font-weight: 600; }
+.usage-pct { min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+.full-note { max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); font-size: 14px; }
+.full-note[hidden] { display: none; }
+.full-note.full { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
+.composer.disabled { opacity: .5; pointer-events: none; }
+@media (max-width: 640px) { .usage-label { display: none; } .usage-bar { width: 70px; } }
 .btn { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 7px 14px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: background .15s; }
 .btn:hover { background: var(--panel-2); }
 .btn svg { width: 16px; height: 16px; }
@@ -191,6 +238,13 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
 .drop-overlay { display: none; position: fixed; inset: 0; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 3px dashed var(--accent); z-index: 50; align-items: center; justify-content: center; font-size: 20px; font-weight: 650; color: var(--accent); pointer-events: none; }
 .drop-overlay.show { display: flex; }
 
+/* Narrow windows and phones: the sidebar slides in over the chat */
+@media (max-width: 760px) {
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: min(290px, 85vw); z-index: 40; transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow); }
+  .layout.open .sidebar { transform: none; }
+  .layout.open .scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 35; }
+  #menuBtn { display: grid; }
+}
 /* Phones and small windows */
 @media (max-width: 640px) {
   header { padding: 10px 16px; }
@@ -204,21 +258,43 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
   :root { --bg: #fff; --panel: #fff; --panel-2: #f4f4f2; --border: #d9d9d4; --text: #1c1c1a; --muted: #5f5f5a; --user-bubble: #eee; --user-text: #1c1c1a;
     --bad: #b42318; --bad-soft: #fef3f2; --good: #067647; --good-soft: #ecfdf3; --warn: #b54708; --warn-soft: #fffaeb; --info: #1849a9; --info-soft: #eff8ff; color-scheme: light; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .app { height: auto; } .messages { overflow: visible; }
-  header .header-right, .setup, .composer-wrap, details.panel, .review .row { display: none !important; }
+  .layout, .app { height: auto; display: block; } .messages { overflow: visible; }
+  .sidebar, .scrim, header, .setup, .composer-wrap, details.panel, .review .row { display: none !important; }
   .issue, .verdict, .passed > div { break-inside: avoid; }
 }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
+<div class="layout" id="layout">
+<!-- Sidebar: new chat and saved chats (collapsible) -->
+<aside class="sidebar" id="sidebar" aria-label="Chats">
+  <div class="side-top">
     <div class="brand">
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-      <h1>ASC Assistant</h1>
+      <h1>Aida</h1>
     </div>
-    <div class="header-right">
-      <button class="btn" id="newChat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New chat</button>
+    <button type="button" class="icon-btn" id="collapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+  </div>
+  <button type="button" class="side-btn" id="newChat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>New chat</span></button>
+  <!-- <a class="side-btn" href="/upload">Upload documents</a> -->
+  <div class="side-section">
+    <div class="side-label">Chats</div>
+    <ul class="history-list" id="historyList"></ul>
+  </div>
+  <div class="side-foot">
+    <button type="button" class="link-btn" id="clearHistory">Clear all chats</button>
+    <p class="history-note">Saved in this browser only.</p>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<div class="app">
+  <header>
+    <button type="button" class="icon-btn" id="menuBtn" aria-label="Open chats" title="Open chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="chat-title" id="chatTitle"></div>
+    <div class="usage" id="usage" title="How much of this chat the AI can remember. Each answer re-reads the whole conversation; when it's full, start a new chat.">
+      <span class="usage-label">Chat memory</span>
+      <span class="usage-bar" role="progressbar" aria-label="Chat memory used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="usageBar"><i id="usageFill"></i></span>
+      <span class="usage-pct" id="usagePct">0%</span>
     </div>
   </header>
   <div class="setup" id="setup"></div>
@@ -227,8 +303,8 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
     <div class="thread" id="thread">
       <div class="empty" id="empty">
         <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-        <h2>How can I help with your ad?</h2>
-        <p>Ask anything about the Ad Standards Council guidelines, or attach an ad image and I'll check it.</p>
+        <h2 id="greeting">Hi, I'm Aida. How can I help?</h2>
+        <p>Ask me about ASC or MACEA guidelines, or attach an ad image for an ASC check.</p>
         <div class="starters">
           <button class="starter main" id="starterAttach">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
@@ -245,6 +321,10 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
 
   <div class="composer-wrap">
     <button type="button" class="jump" id="jumpBtn" aria-label="Scroll to the latest message" title="Scroll to the latest message" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+    <div class="full-note" id="fullNote" hidden>
+      <span id="fullText">This chat has reached its length limit. Start a new chat to continue.</span>
+      <button type="button" class="btn primary" id="fullNewChat">New chat</button>
+    </div>
     <form class="composer" id="composer">
       <div class="attachment" id="attachment">
         <img id="attachImg" alt="Attached image">
@@ -254,12 +334,13 @@ details.panel > summary .count { margin-left: auto; font-weight: 500; color: var
       <div class="row-input">
         <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden>
         <button type="button" class="icon-btn" id="attachBtn" aria-label="Attach an ad image" title="Attach an ad image (optional)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-9 9a1.8 1.8 0 01-2.6-2.6l8.3-8.3"/></svg></button>
-        <textarea id="input" rows="1" placeholder="Message ASC Assistant…"></textarea>
+        <textarea id="input" rows="1" placeholder="Message Aida…"></textarea>
         <button class="send" id="sendBtn" type="submit" aria-label="Send" disabled></button>
       </div>
     </form>
     <div class="hint">AI can make mistakes. Results are guidance, not an official ASC decision.</div>
   </div>
+</div>
 </div>
 <div class="drop-overlay" id="dropOverlay">Drop the ad image to attach it</div>
 
@@ -280,7 +361,15 @@ let history = [];       // What the AI remembers: [{role, content}]
 let attached = null;    // The image attached to the next message (optional)
 let controller = null;  // Lets the Stop button cancel
 let msgCount = 0;       // Gives each message unique ids
+let chatId = null;      // Id of this conversation in the saved history (set when it's first saved)
+let entries = [];       // What's shown on screen, in a form that can be saved and shown again
 sendBtn.innerHTML = ICON_SEND;
+const greetings = [
+  "Hi, I'm Aida. How can I help?",
+  "Hello! I'm Aida, your guidelines assistant.",
+  "Welcome! I'm Aida. What would you like to review?"
+];
+$("greeting").textContent = greetings[Math.floor(Math.random() * greetings.length)];
 
 // ---------- Markdown → HTML (small built-in renderer, nothing downloaded) ----------
 function inline(s) {     // Bold, italic, inline code, links. Input is already escaped.
@@ -378,7 +467,7 @@ function attach(f) {
 function clearAttachment() {
   attached = null; $("fileInput").value = "";
   $("attachment").style.display = "none";
-  input.placeholder = "Message ASC Assistant…";
+  input.placeholder = "Message Aida…";
   updateButton();
 }
 $("attachBtn").addEventListener("click", () => $("fileInput").click());
@@ -405,7 +494,7 @@ input.addEventListener("input", () => { autosize(); updateButton(); });
 input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!controller) send(); } });
 $("composer").addEventListener("submit", (e) => { e.preventDefault(); if (controller) controller.abort(); else send(); });
 document.querySelectorAll(".starter[data-q]").forEach((b) => b.addEventListener("click", () => { input.value = b.dataset.q; send(); }));
-$("newChat").addEventListener("click", () => { if (!controller || confirm("Stop the current answer and start a new chat?")) location.reload(); });
+$("newChat").addEventListener("click", () => { if (!controller || confirm("Stop the current answer and start a new chat?")) openChat(""); });
 
 // ---------- Adding messages ----------
 function addUser(text, file) {
@@ -430,6 +519,9 @@ async function send() {
   if (!text && !file) return;
   input.value = ""; autosize(); clearAttachment();
   addUser(text, file);
+  const userEntry = { t: "user", text, img: null, name: file?.name || "" };   // Saved once the answer is complete
+  entries.push(userEntry);
+  if (file) imageToDataURL(file).then((d) => { userEntry.img = d; }).catch(() => {});   // Compressed copy, for showing it again and for the PDF
   scrollDown(true);
   const form = new FormData();
   form.append("message", text);
@@ -442,27 +534,31 @@ async function send() {
     const res = await fetch("/api/chat", { method: "POST", body: form, signal: controller.signal });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Server error " + res.status);
     const reader = res.body.getReader(), decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
+    let buffer = "", completed = false;
+    const receive = (line) => {
+      if (!line.trim() || completed) return;
+      const ev = JSON.parse(line);
+      if (ev.type === "error") throw new Error(ev.message);
+      if (ev.type === "done") { completed = true; return; }
+      ui.event(ev);
+    };
+    while (!completed) {
       const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(value, { stream: !done });
       const lines = buffer.split("\n"); buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const ev = JSON.parse(line);
-        if (ev.type === "error") throw new Error(ev.message);
-        ui.event(ev);
-      }
+      for (const line of lines) receive(line);
+      if (done) { receive(buffer); break; }
     }
+    if (completed) reader.cancel().catch(() => {});
     ui.finish();
   } catch (err) {
     ui.fail(err.name === "AbortError" ? null : err.message);
+  } finally {
+    controller = null;
+    updateButton();
+    scrollDown();
+    refreshStatus();
   }
-  controller = null;
-  updateButton();
-  scrollDown();
-  refreshStatus();
 }
 
 // Shared pieces for thinking and guideline searches
@@ -499,7 +595,7 @@ function chatUI() {
     event(ev) {
       if (ev.type === "queued") setActivity("Waiting for the current check to finish…");
       else if (ev.type === "thinking") { more.think(ev.text); if (!answer) setActivity("Thinking…"); }
-      else if (ev.type === "search") { more.search(ev.query, ev.result); setActivity(`Searching the ASC Guidebook: “${ev.query}”`); }
+      else if (ev.type === "search") { setActivity("Checking guidelines…"); }
       else if (ev.type === "token") { answer += ev.text; setActivity(""); render(); }
       else if (ev.type === "warning") warning = ev.text;
     },
@@ -508,12 +604,14 @@ function chatUI() {
       content.innerHTML = answer ? md(answer) : '<p style="color:var(--muted)">No answer.</p>';
       if (warning) { const n = document.createElement("div"); n.className = "note"; n.textContent = "⚠ " + warning; content.after(n); }
       if (answer) history.push({ role: "user", content: lastUserText() }, { role: "assistant", content: answer });
+      record({ t: "chat", answer, warning });
     },
     fail(message) {
       cancelAnimationFrame(frame); setActivity("");
       if (message) content.innerHTML = `<div class="error-box">${esc("Something went wrong: " + message)}</div>`;
       else content.innerHTML = (answer ? md(answer) : "") + '<p style="color:var(--muted)"><em>Stopped.</em></p>';
       if (answer) history.push({ role: "user", content: lastUserText() }, { role: "assistant", content: answer });
+      record(answer ? { t: "chat", answer, stopped: true } : { t: "chat", answer: "", error: message || "Stopped." });
     },
   };
 }
@@ -545,14 +643,16 @@ function checkUI(file, note) {
     finish() {
       end();
       if (!final) { result.innerHTML = '<div class="error-box">The check ended without a result.</div>'; return; }
-      result.innerHTML = renderResult(final, id);
-      result.querySelector(".pdf")?.addEventListener("click", (e) => downloadReport(e.currentTarget, final, file, id));
+      const entry = { t: "check", result: final, name: file.name, decision: "", notes: "" };
+      showCheckResult(result, final, file, entry);
       history.push({ role: "user", content: (note ? note + "\n" : "") + `[Attached an ad image to check: ${file.name}]` },
                    { role: "assistant", content: summarize(final, file.name) });
+      record(entry);
     },
     fail(message) {
       end();
       result.innerHTML = `<div class="error-box">${esc(message ? "The check could not run: " + message : "Check stopped.")}</div>`;
+      record({ t: "check", result: null, name: file.name, error: message || "Check stopped." });
     },
   };
 }
@@ -576,9 +676,12 @@ function renderResult(r, id) {
     html += `<div class="verdict good"><div class="v">✓ Compliant</div><p>${esc(r.approval_summary || "No ASC violations were found.")}</p></div>`;
     if ((r.checks_passed || []).length) html += `<div class="passed">` + r.checks_passed.map((c) =>
       `<div><span class="tick">✓</span><div><b>${esc(c.check)}</b><div>${esc(c.finding)}</div>${c.guideline ? `<small>ASC guideline: ${esc(c.guideline)}</small>` : ""}</div></div>`).join("") + `</div>`;
+  } else if (r.result === "NEEDS_REVIEW") {
+    html += `<div class="verdict warn"><div class="v">Needs review</div><p>${esc(r.message || "The available evidence does not support approval or rejection.")}</p></div>`;
   } else {
     html += `<div class="verdict warn"><div class="v">! Could not check</div><p>${esc(String(r.message || "Please send the image again.").split("\n")[0])}</p></div>`;
   }
+  if (Number.isFinite(r.seconds)) html += `<p class="muted">Completed in ${esc(fmtTime(r.seconds))}.</p>`;
   if ((r.removed_reasons || []).length) html += `<details class="panel"><summary>Removed by verification <span class="count">${r.removed_reasons.length}</span></summary><div class="panel-body">
     <p style="margin:0 0 6px;font-size:13px">The AI raised these, but they weren't backed by the image, so they were removed:</p>
     <ul class="removed">${r.removed_reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></details>`;
@@ -623,6 +726,152 @@ async function downloadReport(btn, result, file, id) {
   }
   btn.disabled = false; btn.innerHTML = label;
 }
+
+// ---------- Saved chat history (this browser's local storage) ----------
+// Each finished answer or check is saved, so the conversation survives a reload and older chats can be reopened.
+// Images are stored as compressed copies (for showing them again and for the PDF report).
+const STORE_KEY = "ada.chats", CURRENT_KEY = "ada.current", MAX_CHATS = 30;
+const readStore = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
+function loadChats() { const list = readStore(STORE_KEY, []); return Array.isArray(list) ? list : []; }
+function storeChats(list) {   // Saves the list; if the browser is out of space, drops old images, then old chats
+  list = list.slice(0, MAX_CHATS);
+  for (let tries = 0; tries < 60; tries++) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; }
+    catch {
+      const withImage = [...list].reverse().find((c) => c.id !== chatId && c.entries.some((e) => e.img));   // Oldest other chat with images
+      if (withImage) withImage.entries.forEach((e) => { e.img = null; });
+      else if (list.length > 1) list = list.filter((c) => c.id === chatId).concat(list.filter((c) => c.id !== chatId).slice(0, -1));
+      else { list[0]?.entries.forEach((e) => { e.img = null; }); if (tries > 1) return false; }
+    }
+  }
+  return false;
+}
+function setCurrent(id) { try { localStorage.setItem(CURRENT_KEY, id || ""); } catch {} }
+function saveChat() {
+  if (!entries.length) return;
+  chatId = chatId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const first = entries.find((e) => e.t === "user");
+  const title = (first?.text || (first?.name ? "Image check: " + first.name : "Chat")).slice(0, 80);
+  const list = loadChats().filter((c) => c.id !== chatId);
+  list.unshift({ id: chatId, title, updated: Date.now(), history, entries });
+  storeChats(list);
+  setCurrent(chatId);
+  renderHistory();
+}
+function record(entry) { entries.push(entry); saveChat(); }
+function openChat(id) { setCurrent(id); location.reload(); }   // Show another saved chat ("" = a new chat)
+function deleteChat(id) {
+  storeChats(loadChats().filter((c) => c.id !== id));
+  if (id === chatId) openChat(""); else renderHistory();
+}
+
+// Compressed JPEG copy of an image (longest side up to 1600 px)
+async function imageToDataURL(file, max = 1600) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+  const g = canvas.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, canvas.width, canvas.height);
+  g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+async function dataURLToFile(dataURL, name) {
+  const blob = await (await fetch(dataURL)).blob();
+  return new File([blob], (name || "image").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
+// Shows a finished check: the result card, the PDF button, and the saved decision and notes
+function showCheckResult(el, final, file, entry) {
+  const id = ++msgCount;
+  el.innerHTML = renderResult(final, id);
+  const pdf = el.querySelector(".pdf");
+  if (pdf) {
+    if (file) pdf.addEventListener("click", (e) => downloadReport(e.currentTarget, final, file, id));
+    else { pdf.disabled = true; pdf.title = "The image wasn't saved with this chat (not enough browser storage), so the PDF can't be made."; }
+  }
+  const radio = el.querySelector(`input[name="decision-${id}"][value="${entry.decision}"]`);
+  if (radio) radio.checked = true;
+  const notes = el.querySelector(".notes");
+  if (notes) notes.value = entry.notes || "";
+  el.addEventListener("change", (e) => { if (e.target.name === `decision-${id}`) { entry.decision = e.target.value; saveChat(); } });
+  notes?.addEventListener("input", () => { entry.notes = notes.value; clearTimeout(notes._t); notes._t = setTimeout(saveChat, 500); });
+}
+
+// Shows a saved chat again after a reload
+async function restoreChat() {
+  let id = ""; try { id = localStorage.getItem(CURRENT_KEY) || ""; } catch {}   // Plain text, not JSON
+  const saved = id && loadChats().find((c) => c.id === id);
+  if (!saved) return;
+  chatId = saved.id; entries = saved.entries || []; history = Array.isArray(saved.history) ? saved.history : [];
+  let lastFile = null;
+  for (const e of entries) {
+    if (e.t === "user") {
+      lastFile = e.img ? await dataURLToFile(e.img, e.name) : null;
+      addUser(e.text, lastFile);
+      if (!e.img && e.name) thread.lastChild.insertAdjacentHTML("afterbegin", `<div class="bubble" style="opacity:.75">📎 ${esc(e.name)}</div>`);
+    } else if (e.t === "chat") {
+      const body = addAssistant('<div class="content md"></div>');
+      body.querySelector(".content").innerHTML = e.answer ? md(e.answer) + (e.stopped ? '<p style="color:var(--muted)"><em>Stopped.</em></p>' : "")
+        : `<div class="error-box">${esc(e.error && e.error !== "Stopped." ? "Something went wrong: " + e.error : "Stopped.")}</div>`;
+      if (e.warning) body.insertAdjacentHTML("beforeend", `<div class="note">⚠ ${esc(e.warning)}</div>`);
+    } else if (e.t === "check") {
+      const body = addAssistant('<div class="result"></div>');
+      if (e.result) showCheckResult(body.querySelector(".result"), e.result, lastFile, e);
+      else body.querySelector(".result").innerHTML = `<div class="error-box">${esc(e.error && e.error !== "Check stopped." ? "The check could not run: " + e.error : "Check stopped.")}</div>`;
+    }
+  }
+  scrollDown(true);
+}
+
+// The chat list in the sidebar, grouped by date like other chat apps
+function dateGroup(time) {
+  const day = (t) => new Date(new Date(t).toDateString()).getTime();
+  const days = Math.round((day(Date.now()) - day(time)) / 86400000);
+  return days <= 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? "Previous 7 days" : days < 30 ? "Previous 30 days" : "Older";
+}
+function renderHistory() {
+  const list = loadChats(), ul = $("historyList");
+  ul.innerHTML = list.length ? "" : '<li class="history-empty">No chats yet.</li>';
+  let group = "";
+  for (const c of list) {
+    const g = dateGroup(c.updated);
+    if (g !== group) { group = g; ul.insertAdjacentHTML("beforeend", `<li class="history-group">${g}</li>`); }
+    const li = document.createElement("li");
+    li.className = "history-item" + (c.id === chatId ? " current" : "");
+    li.innerHTML = `<button type="button" class="open"></button><button type="button" class="del" aria-label="Delete this chat" title="Delete this chat">✕</button>`;
+    const open = li.querySelector(".open");
+    open.textContent = c.title;
+    open.title = `${c.title}\n${new Date(c.updated).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`;
+    open.addEventListener("click", () => { if (c.id !== chatId && (!controller || confirm("Stop the current answer and open this chat?"))) openChat(c.id); else closeDrawer(); });
+    li.querySelector(".del").addEventListener("click", () => { if (confirm(`Delete "${c.title}"?`)) deleteChat(c.id); });
+    ul.appendChild(li);
+  }
+  const current = list.find((c) => c.id === chatId);
+  $("chatTitle").textContent = current ? current.title : "";
+}
+$("clearHistory").addEventListener("click", () => {
+  if (!confirm("Delete all saved chats from this browser?")) return;
+  try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(CURRENT_KEY); } catch {}
+  openChat("");
+});
+
+// Collapsing the sidebar (remembered), and the slide-in sidebar on narrow screens
+const layout = $("layout"), narrow = matchMedia("(max-width: 760px)");
+const SIDEBAR_KEY = "ada.sidebar";
+function setCollapsed(collapsed) {
+  layout.classList.toggle("collapsed", collapsed);
+  $("collapseBtn").setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+  $("collapseBtn").title = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  try { localStorage.setItem(SIDEBAR_KEY, collapsed ? "collapsed" : "open"); } catch {}
+}
+const closeDrawer = () => layout.classList.remove("open");
+$("collapseBtn").addEventListener("click", () => { if (narrow.matches) closeDrawer(); else setCollapsed(!layout.classList.contains("collapsed")); });
+$("menuBtn").addEventListener("click", () => layout.classList.add("open"));
+$("scrim").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+try { if (localStorage.getItem(SIDEBAR_KEY) === "collapsed") setCollapsed(true); } catch {}
+renderHistory();
+restoreChat().then(renderHistory);
 
 // ---------- Setup check (only shown when something needs fixing) ----------
 async function refreshStatus() {

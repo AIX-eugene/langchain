@@ -32,7 +32,7 @@ def main():  # Checks one image from the command line: uv run check.py path\to\a
 
 def show(r):  # Prints the final result
     print(f"\nRESULT: {r['result']}  ({r.get('seconds', '?')} s)")  # The verdict
-    if r["result"] == "ERROR":  # Could not check
+    if r["result"] in {"ERROR", "NEEDS_REVIEW"}:
         print(r["message"])  # Why
     for i, reason in enumerate(r.get("reasons", []), start=1):  # Each violation
         info = reason.get("info", {})  # The rule explanation

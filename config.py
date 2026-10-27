@@ -5,6 +5,8 @@ from dotenv import load_dotenv  # Loads settings from the .env file into environ
 
 load_dotenv()  # Read .env (if it exists) so os.getenv can see our settings
 
+MAX_DOCUMENT_MB = int(os.getenv("MAX_DOCUMENT_MB", "20"))
+
 ROOT = Path(__file__).parent  # The project folder
 PROMPTS = ROOT / "prompts"  # Folder with the AI instructions and rule summaries
 
@@ -19,6 +21,12 @@ KEEP_ALIVE = os.getenv("KEEP_ALIVE", "30m").strip()  # How long the judge stays 
 EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "auto").strip()  # Where search embeddings run; "auto" = a processor-only Ollama copy the app starts itself
 JUDGE_NUM_CTX = int(os.getenv("JUDGE_NUM_CTX", "16384"))  # How much text the judge can read at once. Its instructions alone are ~8,000 tokens; bigger values no longer fit a 16 GB GPU and run much slower
 VISION_NUM_CTX = int(os.getenv("VISION_NUM_CTX", "8192"))  # How much text the vision model can read and write at once
+CHAT_CONTEXT_LIMIT = int(os.getenv("CHAT_CONTEXT_LIMIT", "0")) or max(2000, JUDGE_NUM_CTX - 11500)  # Memory per chat, in tokens: the earlier messages the AI re-reads each turn. Default = what fits next to its ~11,500 tokens of instructions, searches and answer
+CHAT_CONTEXT_CHARS = int(CHAT_CONTEXT_LIMIT * 3.5)  # The same limit in characters (about 3.5 characters per token)
+VISION_MAX_TOKENS = int(os.getenv('VISION_MAX_TOKENS', '4096'))
+IMAGE_JUDGE_MAX_TOKENS = int(os.getenv('IMAGE_JUDGE_MAX_TOKENS', '6144'))
+IMAGE_JUDGE_REASONING = os.getenv('IMAGE_JUDGE_REASONING', 'medium').strip()
+IMAGE_SEED = int(os.getenv('IMAGE_SEED', '42'))
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")  # The Qdrant server (the same one n8n uses)
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY") or None  # Only needed if your Qdrant server has a key

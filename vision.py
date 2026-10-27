@@ -1,6 +1,14 @@
 import ollama  # Ollama's own client; it can send images to vision models
 
-from config import OLLAMA_URL, VISION_MODEL, VISION_NUM_CTX, read_prompt  # Settings and prompt files
+from config import IMAGE_SEED, OLLAMA_URL, VISION_MODEL, VISION_NUM_CTX, VISION_MAX_TOKENS, read_prompt
+
+_thinking_models = {}
+
+
+def vision_options(client):
+    if VISION_MODEL not in _thinking_models:
+        _thinking_models[VISION_MODEL] = 'thinking' in (client.show(VISION_MODEL).capabilities or [])
+    return {'think': False} if _thinking_models[VISION_MODEL] else {}
 
 
 def describe_image(image_bytes):  # Step 1: asks the vision model to describe the ad; yields the description piece by piece
@@ -12,9 +20,12 @@ def describe_image(image_bytes):  # Step 1: asks the vision model to describe th
             {"role": "user", "content": read_prompt("describe.md"), "images": [image_bytes]},  # The 7-section description instructions, plus the image
         ],  # End of conversation
         stream=True,  # Send the answer back piece by piece
-        options={"num_ctx": VISION_NUM_CTX},  # Room for the instructions, the image and a long description
+        **vision_options(client),
+        options={"num_ctx": VISION_NUM_CTX, 'num_predict': VISION_MAX_TOKENS, 'temperature': 0, 'seed': IMAGE_SEED},
     )  # End of request
     for part in stream:  # Each piece of the answer
+        if part.done_reason == 'length':
+            raise RuntimeError('Image description reached its output limit. Increase VISION_MAX_TOKENS or upload a clearer crop; no verdict was issued.')
         text = part.message.content  # The new text
         if text:  # Skip empty pieces
             yield text  # Pass it on

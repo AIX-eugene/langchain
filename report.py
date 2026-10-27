@@ -13,8 +13,9 @@ COLORS = {  # (background, text) colors for each verdict
     "NON-COMPLIANT": ((254, 243, 242), (180, 35, 24)),  # Red
     "COMPLIANT": ((236, 253, 243), (6, 118, 71)),  # Green
     "ERROR": ((255, 250, 235), (181, 71, 8)),  # Orange
+    "NEEDS_REVIEW": ((255, 250, 235), (181, 71, 8)),
 }  # End of colors
-LABELS = {"NON-COMPLIANT": "NON-COMPLIANT", "COMPLIANT": "COMPLIANT", "ERROR": "COULD NOT CHECK"}  # Verdict titles
+LABELS = {"NON-COMPLIANT": "NON-COMPLIANT", "COMPLIANT": "COMPLIANT", "ERROR": "COULD NOT CHECK", "NEEDS_REVIEW": "NEEDS REVIEW"}
 TEXT, MUTED, BLUE = (16, 24, 40), (102, 112, 133), (24, 73, 169)  # Main text, grey and blue colors
 ASCII = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2013": "-", "\u2014": "-", "\u2026": "...", "\u2011": "-", "\u00a0": " "})  # Fancy punctuation -> plain (only used without Arial)
 

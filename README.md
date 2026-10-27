@@ -254,8 +254,16 @@ The page is a simple chat. If something isn't ready (Ollama or Qdrant not runnin
 3. A yellow **⚠ note** under an answer means it mentions a measurement (size, percentage, distance)
    that is **not** in the ASC guidelines. Treat that part as a suggestion, not a requirement.
 
-Use **Shift + Enter** for a new line, the **■** button to stop an answer, and **New chat** (top right)
-to start over. The assistant remembers the conversation until you start a new chat or reload the page.
+Use **Shift + Enter** for a new line, the **■** button to stop an answer, and **New chat** (in the sidebar)
+to start over.
+
+**Chats are saved automatically** in this browser (its local storage): reloading or reopening the page
+brings the conversation back, and the assistant still remembers it for follow-up questions. Your chats are listed in the
+**sidebar on the left**, grouped by date: click one to reopen it, hover and click **✕** to delete it, or
+use **Clear all chats** at the bottom. The sidebar's top button collapses it to a slim strip (and
+expands it again); on a phone, open it with the **☰** button. The 30 most
+recent chats are kept. They are stored only in this browser on this computer, not on the server, so
+another browser or computer won't see them, and clearing the browser's site data deletes them.
 
 ### Checking an ad
 
@@ -294,8 +302,8 @@ to start over. The assistant remembers the conversation until you start a new ch
 7. **Ask follow-ups** in the same chat, e.g. *"How do I fix issue 1?"* or *"Why is the energy claim
    not allowed?"*. The assistant knows the result of the check above.
 
-> The decision and notes are **not saved** by the app. Download the PDF to keep them. Choose
-> the decision and write the notes **before** clicking the button.
+> The decision and notes are saved with the chat in this browser, but that isn't a lasting record:
+> download the PDF to keep them. Choose the decision and write the notes **before** clicking the button.
 >
 > Ctrl + P also prints the page (always in light colors), but the PDF report is the cleaner record.
 
@@ -560,7 +568,10 @@ Set `PORT=8001` in `.env` and open `http://127.0.0.1:8001`.
   page, but the AI finishes its current step in the background first.
 - **Chat answers can still be wrong.** The assistant is told to stick to the ASC rules, and made-up
   measurements are flagged, but always check important answers against the ASC Guidebook.
-- **The conversation isn't saved.** Reloading the page or clicking **New chat** clears it.
+- **Chats are saved only in this browser.** They aren't shared between browsers or computers, and
+  clearing the browser's site data deletes them. Images are kept as compressed copies; if the browser
+  runs out of storage space (about 5 MB), images of the oldest chats are removed first, then the oldest
+  chats. A chat whose image was removed still shows its result, but can't make a PDF report any more.
 - **Decisions aren't saved.** Use **Download PDF report**.
 - **The rules are from the ASC Guidebook of March 2019** (the version loaded in Qdrant and
   summarized in the prompts). Update both if ASC publishes changes.
@@ -609,3 +620,39 @@ curl.exe -F "image=@C:\path\to\ad.png" http://127.0.0.1:8000/api/check
 - The AI models, the guidelines and the web page all run on this computer. The page loads nothing
   from the internet.
 - The internet is only used during installation, and when Ollama or Docker check for updates.
+
+
+## Upload searchable documents
+
+`prompts/macea.md` contains the MACEA retrieval and review instructions, loaded by the shared chat/image search loop. Actual MACEA requirements come from the uploaded source passages, not a hardcoded checklist.
+
+Open `/upload` from **Upload documents** in the chat header. Upload one PDF, UTF-8 TXT/MD, DOCX, or XLSX file. The page shows extraction, embedding, and storage progress and a final passage count. Web uploads are stored in the separate `macea_guidelines` collection using the existing Ollama embedding model. The assistant chooses `asc_guidelines` or `macea_guidelines` search tools from the question and conversation context. ASC content/claims searches use `QDRANT_COLLECTION` (default `asc_guidelines`); MACEA-specific searches use `macea_guidelines`. Requests covering both search both and distinguish the authorities. Chat questions explicitly naming an authority, and their follow-ups, trigger server-side retrieval before model generation, including definitions such as "What is MACEA?". Failed or empty mandatory retrieval stops the answer with a source-availability message; MACEA-only questions do not include the ASC checklist. Image-check validation remains ASC-specific. Existing documents are not moved.
+
+Set `MAX_DOCUMENT_MB` in `.env` (default 20). Original files are processed in memory and are not retained. PDFs preserve page numbers; spreadsheets preserve worksheet names and row numbers. Word paragraphs and tables are included. Excel formulas are never executed: only cached values are read. Scanned PDFs require external OCR. Encrypted PDFs that open without a password are supported through `pypdf[crypto]`. PDFs requiring an opening password and legacy DOC/XLS formats are unsupported.
+
+An existing basename triggers explicit replacement confirmation. Different filenames can contain duplicate content. Replacement embeds all new passages first, saves them, and then removes old passages. Failed storage batches trigger cleanup of new point IDs; incomplete cleanup or old-passage removal is reported as a failure and may require administrator repair. Qdrant does not provide an atomic document swap: searches may briefly see both versions. Closing the page does not cancel an ingestion already running. Uploads are serialized within this single-process server; do not run multiple server workers or CLI ingestion concurrently against the same collection.
+
+The CLI remains available: `uv run ingest_guidelines.py "path/to/guide.pdf"` and `--replace`. It also supports the new formats and applies the same size limit. CLI ingestion continues to target `QDRANT_COLLECTION`; the web upload endpoint targets `macea_guidelines`. Text splitting remains 1,000 characters with 200-character overlap, in embedding/storage batches of 32. `POST /api/documents` accepts multipart `file` and `replace` and streams NDJSON stage/progress/duplicate/done/error events; request validation failures return HTTP 400.
+
+
+## Image-check performance
+
+Image checks now retrieve two focused ASC searches from the structured product/claims/people description (a third for other visuals when present), then make a single JSON judgment. An explicit MACEA reviewer note also retrieves MACEA context; the verdict and verification remain ASC-specific. The full ASC checklist and deterministic verification remain enabled. Chat retains its separate search loop.
+
+Vision thinking is disabled when the selected vision model advertises support. Image judgment uses `IMAGE_JUDGE_REASONING=medium` independently of chat reasoning. `VISION_MAX_TOKENS=4096` and `IMAGE_JUDGE_MAX_TOKENS=6144` bound generation. `IMAGE_SEED=42` is applied to vision, judgment and evidence auditing to reduce sampling variation; it does not guarantee identical outputs across model/hardware changes. If either stage reaches its output limit, processing stops without a verdict; increase the relevant limit for unusually dense ads. Image results include `timings` for description, retrieval/judgment, and verification, plus total `seconds` (excluding queue time). The UI displays total processing time.
+
+Model loading, GPU memory/offloading, image complexity, and service latency still affect duration. No fixed response-time guarantee is imposed by token limits. The two large models may still need to swap in GPU memory between vision and judgment.
+
+
+## Aida conversation scope
+
+Aida answers questions about ASC, MACEA, OOH advertising and related work, and Aida's own features and usage. A server-side scope decision runs before guideline retrieval or answer generation. Unrelated requests receive only a short scope reminder, including when earlier conversation was relevant. Greetings, thanks, and basic identity questions use immediate local replies. Other requests use a bounded JSON classification with recent conversation context for genuine follow-ups. If classification fails or returns an invalid decision, Aida gives the scope reminder without retrieval or generation. Image-check processing is unchanged.
+
+
+## Evidence verification and review outcomes
+
+Image results distinguish `COMPLIANT`, `NON-COMPLIANT`, `NEEDS_REVIEW`, and `ERROR`. Discarded findings never establish compliance. Unreadable text, incomplete observations, category mismatches, unsupported claims, or missing approval evidence require review. Passing checks must quote exact observation evidence and cover general rules, decency, applicable category rules and observed claims. Keyword-only decency signals request review; negated observations do not become violations. Missing-statement findings require verified wording and readable text rather than inferring absence from blurry print.
+
+A proposed approval or rejection receives a separate model evidence audit against the observations, rule summaries and retrieved passages. Audit disagreement, truncation, or failure changes the result to `NEEDS_REVIEW`, never to the opposite verdict. This adds processing time relative to the earlier fast path. The UI, CLI and PDF report recognize the review outcome.
+
+Result `analysis` metadata includes the image, description, source and instruction hashes plus effective seed and reasoning level, so repeated checks can be compared without retaining original uploads. These safeguards reduce unsupported decisions; they do not independently establish OCR ground truth, legal compliance or guaranteed accuracy. Validate model quality against labeled real ads before relying on the pre-screen's decisions. Explicit `.env` overrides take precedence over the updated defaults.

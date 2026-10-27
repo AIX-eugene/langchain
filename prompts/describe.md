@@ -21,3 +21,10 @@ You MUST write your answer under these 7 numbered headings, in this order, even 
 7. UNREADABLE: Any text that is too small or blurry to read, and where it is.
 
 Remember: answer in ENGLISH only, and copy only text that is really in the image.
+
+
+OBSERVATION QUALITY
+- Keep all seven sections. For section 7, write exactly NONE only when every visible text block is readable. Otherwise identify the unreadable area; never guess its text or treat it as absent.
+- Separate observed text from inferred context. If the category is uncertain, say UNKNOWN in section 2 instead of guessing.
+- Describe positive observations and negations explicitly. Do not list hypothetical clothing or actions that are not present.
+- Do not infer real-world dimensions, permits, approvals, or supporting documents from an image alone.
